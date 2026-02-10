@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { SignUpScreen } from './src/screens/SignUpScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AdminPostScreen } from './src/screens/AdminPostScreen';
 import { theme } from './src/theme';
@@ -17,7 +18,10 @@ const AppNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? (
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+        </>
       ) : (
         <>
           <Stack.Screen name="Home" component={HomeScreen} />
@@ -65,4 +69,3 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
-

@@ -7,12 +7,21 @@ import { newsService } from '../services/newsService';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme';
 
+import { useRoute } from '@react-navigation/native';
+import { announcementService } from '../services/announcementService';
+
 export const AdminPostScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
+    const route = useRoute<any>();
     const { user } = useAuth();
 
+    // Default to 'news' if not specified
+    const postType = route.params?.type || 'news';
+    const isNews = postType === 'news';
+
     const [message, setMessage] = useState('');
+    const [title, setTitle] = useState('');
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
 
@@ -47,22 +56,42 @@ export const AdminPostScreen = () => {
     const removeImage = () => setImageUri(null);
 
     const handleSend = async () => {
-        if (!message.trim() && !imageUri) {
+        if (isNews && !message.trim() && !imageUri) {
             showAlert('Error', 'Please add a message or image.');
+            return;
+        }
+
+        if (!isNews && (!title.trim() || !message.trim())) {
+            showAlert('Error', 'Please add a title and details.');
             return;
         }
 
         setSending(true);
         try {
-            await newsService.create(
-                '', // No headline
-                message.trim(),
-                user!.id,
-                user!.display_name,
-                imageUri || undefined
-            );
-            showAlert('Sent!', 'Your message has been posted.', () => navigation.goBack());
+            if (isNews) {
+                await newsService.create(
+                    '', // No headline
+                    message.trim(),
+                    user!.id,
+                    user!.display_name,
+                    imageUri || undefined
+                );
+            } else {
+                await announcementService.create(
+                    title.trim(),
+                    message.trim(),
+                    user!.id,
+                    user!.display_name
+                );
+            }
+
+            showAlert('Sent!', 'Your post has been created.', () => {
+                // Force refresh on go back? 
+                // Ideally screens should listen to focus or context, but for now just go back.
+                navigation.goBack();
+            });
         } catch (error) {
+            console.error(error);
             showAlert('Error', 'Failed to send. Please try again.');
         } finally {
             setSending(false);
@@ -79,14 +108,16 @@ export const AdminPostScreen = () => {
                 <Pressable onPress={() => navigation.goBack()}>
                     <Text style={styles.cancelText}>← Back</Text>
                 </Pressable>
-                <Text style={styles.headerTitle}>New Post</Text>
+                <Text style={styles.headerTitle}>
+                    {isNews ? 'New Post' : 'New Announcement'}
+                </Text>
                 <View style={{ width: 50 }} />
             </View>
 
             {/* Content Area */}
             <View style={styles.content}>
-                {/* Image Preview */}
-                {imageUri && (
+                {/* Image Preview - Only for News */}
+                {isNews && imageUri && (
                     <View style={styles.imagePreviewContainer}>
                         <Image source={{ uri: imageUri }} style={styles.imagePreview} />
                         <Pressable style={styles.removeButton} onPress={removeImage}>
@@ -95,12 +126,23 @@ export const AdminPostScreen = () => {
                     </View>
                 )}
 
+                {/* Title Input - Only for Announcements */}
+                {!isNews && (
+                    <TextInput
+                        style={styles.titleInput}
+                        value={title}
+                        onChangeText={setTitle}
+                        placeholder="Announcement Title"
+                        placeholderTextColor={theme.colors.textSecondary}
+                    />
+                )}
+
                 {/* Message Input */}
                 <TextInput
                     style={styles.messageInput}
                     value={message}
                     onChangeText={setMessage}
-                    placeholder="Type a message..."
+                    placeholder={isNews ? "Type a message..." : "Announcement details..."}
                     placeholderTextColor={theme.colors.textSecondary}
                     multiline
                     textAlignVertical="top"
@@ -109,9 +151,11 @@ export const AdminPostScreen = () => {
 
             {/* Bottom Bar */}
             <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
-                <Pressable style={styles.attachButton} onPress={pickImage}>
-                    <Text style={styles.attachIcon}>📷</Text>
-                </Pressable>
+                {isNews && (
+                    <Pressable style={styles.attachButton} onPress={pickImage}>
+                        <Text style={styles.attachIcon}>📷</Text>
+                    </Pressable>
+                )}
 
                 <Pressable
                     style={[styles.sendButton, sending && styles.sendButtonDisabled]}
@@ -119,7 +163,7 @@ export const AdminPostScreen = () => {
                     disabled={sending}
                 >
                     <Text style={styles.sendButtonText}>
-                        {sending ? 'Sending...' : 'Send'}
+                        {sending ? 'Sending...' : (isNews ? 'Post News' : 'Post Announcement')}
                     </Text>
                 </Pressable>
             </View>
@@ -189,6 +233,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.border,
         minHeight: 120,
+    },
+    titleInput: {
+        backgroundColor: theme.colors.surface,
+        borderRadius: 12,
+        padding: 16,
+        fontSize: 18,
+        fontWeight: '600',
+        color: theme.colors.text,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        marginBottom: 16,
     },
     bottomBar: {
         flexDirection: 'row',

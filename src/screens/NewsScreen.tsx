@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, Image, Pressable, Linking, SafeAreaView, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Image, Pressable, Linking, RefreshControl, Platform, Alert, Modal, TouchableWithoutFeedback } from 'react-native';
 import { newsService } from '../services/newsService';
-import { NewsArticle } from '../types';
+import { reactionService } from '../services/reactionService';
+import { NewsArticle, ReactionType } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { authService } from '../services/authService';
 import { theme } from '../theme';
 
 // Helper to render bold text marked with **text**
@@ -73,7 +76,41 @@ const DateSeparator = ({ label }: { label: string }) => (
     </View>
 );
 
-const NewsCard = ({ article }: { article: NewsArticle }) => {
+const REACTIONS: { key: ReactionType; emoji: string }[] = [
+    { key: 'like', emoji: '👍' },
+    { key: 'love', emoji: '❤️' },
+    { key: 'laugh', emoji: '😂' },
+    { key: 'wow', emoji: '😮' },
+    { key: 'sad', emoji: '😢' },
+    { key: 'thanks', emoji: '🙏' },
+];
+
+const emptyReactionCounts = (): Record<ReactionType, number> => ({
+    like: 0,
+    love: 0,
+    laugh: 0,
+    wow: 0,
+    sad: 0,
+    thanks: 0,
+});
+
+type ReactionSummary = { counts: Record<ReactionType, number>; userReaction?: ReactionType };
+
+const NewsCard = ({
+    article,
+    onLongPress,
+    reactionSummary,
+    onReact,
+    onOpenPicker,
+    canReact,
+}: {
+    article: NewsArticle;
+    onLongPress?: () => void;
+    reactionSummary?: ReactionSummary;
+    onReact?: (reaction: ReactionType) => void;
+    onOpenPicker?: () => void;
+    canReact: boolean;
+}) => {
     const handleLinkPress = () => {
         if (article.link_url) {
             Linking.openURL(article.link_url);
@@ -81,7 +118,12 @@ const NewsCard = ({ article }: { article: NewsArticle }) => {
     };
 
     return (
-        <View style={styles.card}>
+        <Pressable
+            style={styles.card}
+            onLongPress={onLongPress}
+            delayLongPress={350}
+            disabled={!onLongPress}
+        >
             {/* Image */}
             {article.image_url && (
                 <Image
@@ -105,10 +147,40 @@ const NewsCard = ({ article }: { article: NewsArticle }) => {
                     </Pressable>
                 )}
 
+                {/* Reactions */}
+                <View style={styles.reactionBar}>
+                    {REACTIONS.filter((reaction) => (reactionSummary?.counts?.[reaction.key] || 0) > 0).map((reaction) => {
+                        const count = reactionSummary?.counts?.[reaction.key] || 0;
+                        const isActive = reactionSummary?.userReaction === reaction.key;
+                        return (
+                            <Pressable
+                                key={reaction.key}
+                                style={[
+                                    styles.reactionChip,
+                                    isActive && styles.reactionChipActive,
+                                    !canReact && styles.reactionChipDisabled,
+                                ]}
+                                onPress={() => onReact?.(reaction.key)}
+                                disabled={!canReact}
+                            >
+                                <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+                                <Text style={[styles.reactionCount, isActive && styles.reactionCountActive]}>
+                                    {count}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                    {canReact && (
+                        <Pressable style={styles.addReactionChip} onPress={onOpenPicker}>
+                            <Text style={styles.addReactionText}>+</Text>
+                        </Pressable>
+                    )}
+                </View>
+
                 {/* Timestamp */}
                 <Text style={styles.timestamp}>{formatTime(article.created_at)}</Text>
             </View>
-        </View>
+        </Pressable>
     );
 };
 
@@ -119,10 +191,16 @@ type ListItem =
 export const NewsScreen = () => {
     const [news, setNews] = useState<NewsArticle[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [reactionSummary, setReactionSummary] = useState<Record<string, ReactionSummary>>({});
+    const [reactionPickerTargetId, setReactionPickerTargetId] = useState<string | null>(null);
+    const { user } = useAuth();
+    const isAdmin = authService.isAdmin(user);
+    const canReact = !!user && !isAdmin;
 
     const loadNews = async () => {
         const articles = await newsService.getAll();
         setNews(articles);
+        await loadReactions(articles);
     };
 
     useEffect(() => {
@@ -133,6 +211,108 @@ export const NewsScreen = () => {
         setRefreshing(true);
         await loadNews();
         setRefreshing(false);
+    };
+
+    const loadReactions = async (articles: NewsArticle[]) => {
+        try {
+            const reactions = await reactionService.getForTargets('news', articles.map((item) => item.id));
+            const summary: Record<string, ReactionSummary> = {};
+
+            reactions.forEach((reaction) => {
+                if (!summary[reaction.target_id]) {
+                    summary[reaction.target_id] = {
+                        counts: emptyReactionCounts(),
+                        userReaction: undefined,
+                    };
+                }
+
+                summary[reaction.target_id].counts[reaction.reaction] += 1;
+                if (reaction.user_id === user?.id) {
+                    summary[reaction.target_id].userReaction = reaction.reaction;
+                }
+            });
+
+            setReactionSummary(summary);
+        } catch (error) {
+            console.warn('Failed to load reactions', error);
+        }
+    };
+
+    const updateReactionSummary = (targetId: string, nextReaction?: ReactionType, prevReaction?: ReactionType) => {
+        setReactionSummary((prev) => {
+            const existing = prev[targetId] || { counts: emptyReactionCounts(), userReaction: undefined };
+            const counts = { ...existing.counts };
+
+            if (prevReaction) counts[prevReaction] = Math.max(0, counts[prevReaction] - 1);
+            if (nextReaction) counts[nextReaction] = (counts[nextReaction] || 0) + 1;
+
+            return {
+                ...prev,
+                [targetId]: {
+                    counts,
+                    userReaction: nextReaction,
+                },
+            };
+        });
+    };
+
+    const handleReact = async (targetId: string, reaction: ReactionType) => {
+        if (!user) return;
+        const currentReaction = reactionSummary[targetId]?.userReaction;
+
+        try {
+            if (currentReaction === reaction) {
+                await reactionService.remove('news', targetId, user.id);
+                updateReactionSummary(targetId, undefined, currentReaction);
+                return;
+            }
+
+            if (currentReaction) {
+                await reactionService.remove('news', targetId, user.id);
+            }
+
+            await reactionService.add('news', targetId, user.id, reaction);
+            updateReactionSummary(targetId, reaction, currentReaction);
+        } catch (error) {
+            Alert.alert('Error', 'Failed to update reaction. Please try again.');
+        }
+    };
+
+    const openReactionPicker = (targetId: string) => {
+        if (!canReact) return;
+        setReactionPickerTargetId(targetId);
+    };
+
+    const closeReactionPicker = () => {
+        setReactionPickerTargetId(null);
+    };
+
+    const confirmDelete = (onConfirm: () => void) => {
+        if (Platform.OS === 'web') {
+            const confirmFn = (globalThis as any)?.confirm as ((message: string) => boolean) | undefined;
+            if (confirmFn && confirmFn('Delete this news post?')) onConfirm();
+            return;
+        }
+        Alert.alert('Delete Post', 'Delete this news post?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: onConfirm },
+        ]);
+    };
+
+    const handleDelete = (id: string) => {
+        confirmDelete(async () => {
+            try {
+                await newsService.delete(id);
+                setNews((prev) => prev.filter((item) => item.id !== id));
+                setReactionSummary((prev) => {
+                    const next = { ...prev };
+                    delete next[id];
+                    return next;
+                });
+            } catch (error) {
+                Alert.alert('Error', 'Failed to delete. Please try again.');
+            }
+        });
     };
 
     // Group articles with date separators
@@ -164,11 +344,26 @@ export const NewsScreen = () => {
         if (item.type === 'date') {
             return <DateSeparator label={item.label} />;
         }
-        return <NewsCard article={item.article} />;
+        return (
+            <NewsCard
+                article={item.article}
+                onLongPress={
+                    isAdmin
+                        ? () => handleDelete(item.article.id)
+                        : canReact
+                            ? () => openReactionPicker(item.article.id)
+                            : undefined
+                }
+                reactionSummary={reactionSummary[item.article.id]}
+                onReact={(reaction) => handleReact(item.article.id, reaction)}
+                onOpenPicker={() => openReactionPicker(item.article.id)}
+                canReact={canReact}
+            />
+        );
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <FlatList
                 data={listData}
                 keyExtractor={(item) => item.key}
@@ -187,7 +382,39 @@ export const NewsScreen = () => {
                     </View>
                 }
             />
-        </SafeAreaView>
+
+            <Modal
+                visible={!!reactionPickerTargetId}
+                transparent
+                animationType="fade"
+                onRequestClose={closeReactionPicker}
+            >
+                <TouchableWithoutFeedback onPress={closeReactionPicker}>
+                    <View style={styles.reactionPickerOverlay}>
+                        <TouchableWithoutFeedback>
+                            <View style={styles.reactionPickerCard}>
+                                <View style={styles.reactionPickerRow}>
+                                    {REACTIONS.map((reaction) => (
+                                        <Pressable
+                                            key={reaction.key}
+                                            style={styles.reactionPickerButton}
+                                            onPress={() => {
+                                                if (reactionPickerTargetId) {
+                                                    handleReact(reactionPickerTargetId, reaction.key);
+                                                }
+                                                closeReactionPicker();
+                                            }}
+                                        >
+                                            <Text style={styles.reactionPickerEmoji}>{reaction.emoji}</Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
+        </View>
     );
 };
 
@@ -293,6 +520,86 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#4A90A4',
         textDecorationLine: 'underline',
+    },
+    reactionBar: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginTop: 12,
+        marginBottom: 4,
+    },
+    reactionChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 14,
+        backgroundColor: theme.colors.background,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        marginRight: 6,
+        marginBottom: 6,
+    },
+    reactionChipActive: {
+        backgroundColor: theme.colors.primary,
+        borderColor: theme.colors.primary,
+    },
+    reactionChipDisabled: {
+        opacity: 0.6,
+    },
+    reactionEmoji: {
+        fontSize: 14,
+    },
+    reactionCount: {
+        marginLeft: 4,
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        fontWeight: '600',
+    },
+    reactionCountActive: {
+        color: '#FFFFFF',
+    },
+    addReactionChip: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 14,
+        backgroundColor: theme.colors.surface,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        marginRight: 6,
+        marginBottom: 6,
+    },
+    addReactionText: {
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+        fontWeight: '600',
+    },
+    reactionPickerOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    reactionPickerCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+    },
+    reactionPickerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    reactionPickerButton: {
+        padding: 6,
+        marginHorizontal: 6,
+    },
+    reactionPickerEmoji: {
+        fontSize: 24,
     },
     timestamp: {
         fontSize: 11,

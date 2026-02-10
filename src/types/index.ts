@@ -27,3 +27,15 @@ export interface NewsArticle {
   author_name: string;
   created_at: string;
 }
+
+export type ReactionTargetType = 'news' | 'announcement';
+export type ReactionType = 'like' | 'love' | 'laugh' | 'wow' | 'sad' | 'thanks';
+
+export interface Reaction {
+  id: string;
+  target_type: ReactionTargetType;
+  target_id: string;
+  user_id: string;
+  reaction: ReactionType;
+  created_at: string;
+}

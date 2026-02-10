@@ -1,24 +1,47 @@
+import { supabase } from './supabaseClient';
 import { Announcement } from '../types';
-import { MOCK_ANNOUNCEMENTS } from './mockData';
 
 export const announcementService = {
     getAll: async (): Promise<Announcement[]> => {
         // Return sorted by date (newest first)
-        return [...MOCK_ANNOUNCEMENTS].sort((a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
+        const { data, error } = await supabase
+            .from('cbn_app_announcements')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map((item: any) => ({
+            ...item,
+            id: item.id.toString(),
+        })) as Announcement[];
     },
 
     create: async (title: string, content: string, authorId: string, authorName: string): Promise<Announcement> => {
-        const newAnnouncement: Announcement = {
-            id: Math.random().toString(36).substring(7),
-            title,
-            content,
-            author_id: authorId,
-            author_name: authorName,
-            created_at: new Date().toISOString(),
-        };
-        MOCK_ANNOUNCEMENTS.push(newAnnouncement);
-        return newAnnouncement;
+        const { data, error } = await supabase
+            .from('cbn_app_announcements')
+            .insert([{
+                title,
+                content,
+                author_id: authorId
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return {
+            ...data,
+            id: data.id.toString(),
+            author_name: authorName
+        } as Announcement;
+    },
+    delete: async (id: string): Promise<void> => {
+        const { error } = await supabase
+            .from('cbn_app_announcements')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
     }
 };

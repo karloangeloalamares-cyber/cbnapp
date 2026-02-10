@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../theme';
 
 export const LoginScreen = () => {
     const insets = useSafeAreaInsets();
+    const navigation = useNavigation<any>();
     const { login, loading } = useAuth();
     const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
 
     const handleLogin = async () => {
-        if (!email.trim()) {
-            alert('Please enter your email');
+        if (!email.trim() || !password.trim()) {
+            alert('Please enter both email and password');
             return;
         }
-        await login(email.trim());
+        await login(email.trim(), password.trim());
     };
 
     return (
@@ -38,6 +41,15 @@ export const LoginScreen = () => {
                     autoCapitalize="none"
                 />
 
+                <TextInput
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Enter your password"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    secureTextEntry
+                />
+
                 <TouchableOpacity
                     style={[styles.button, loading && styles.buttonDisabled]}
                     onPress={handleLogin}
@@ -51,6 +63,10 @@ export const LoginScreen = () => {
                 <Text style={styles.hint}>
                     Try: admin@cbn.com (admin) or alice@example.com (user)
                 </Text>
+
+                <Pressable onPress={() => navigation.navigate('SignUp')}>
+                    <Text style={styles.linkText}>Create an account</Text>
+                </Pressable>
             </View>
         </View>
     );
@@ -113,6 +129,12 @@ const styles = StyleSheet.create({
         marginTop: 24,
         fontSize: 13,
         color: theme.colors.textSecondary,
+        textAlign: 'center',
+    },
+    linkText: {
+        marginTop: 16,
+        fontSize: 14,
+        color: theme.colors.primary,
         textAlign: 'center',
     }
 });
