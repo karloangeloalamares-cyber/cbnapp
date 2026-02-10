@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert, Platform, Pressable, Modal, TouchableWithoutFeedback } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { announcementService } from '../services/announcementService';
 import { reactionService } from '../services/reactionService';
+import { postViewsService } from '../services/postViewsService';
 import { authService } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { Announcement, ReactionType } from '../types';
+import { FormattedText } from '../components/FormattedText';
 import { theme } from '../theme';
 
 const REACTIONS: { key: ReactionType; emoji: string }[] = [
@@ -27,6 +29,7 @@ const emptyReactionCounts = (): Record<ReactionType, number> => ({
 });
 
 type ReactionSummary = { counts: Record<ReactionType, number>; userReaction?: ReactionType };
+type ViewSummary = { count: number; hasViewed: boolean };
 
 interface Props {
     embedded?: boolean;
@@ -38,7 +41,9 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [reactionSummary, setReactionSummary] = useState<Record<string, ReactionSummary>>({});
+    const [viewSummary, setViewSummary] = useState<Record<string, ViewSummary>>({});
     const [reactionPickerTargetId, setReactionPickerTargetId] = useState<string | null>(null);
+    const lastLongPressId = useRef<string | null>(null);
 
     useEffect(() => {
         loadAnnouncements();
@@ -48,6 +53,7 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         const data = await announcementService.getAll();
         setAnnouncements(data);
         await loadReactions(data);
+        await loadViews(data);
     };
 
     const onRefresh = async () => {
@@ -58,6 +64,17 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
 
     const isAdmin = authService.isAdmin(user);
     const canReact = !!user && !isAdmin;
+    const canTrackView = !!user && !isAdmin;
+    const showViewCount = isAdmin;
+
+    const markLongPress = (id: string) => {
+        lastLongPressId.current = id;
+        setTimeout(() => {
+            if (lastLongPressId.current === id) {
+                lastLongPressId.current = null;
+            }
+        }, 400);
+    };
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -93,6 +110,45 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         } catch (error) {
             console.warn('Failed to load reactions', error);
         }
+    };
+
+    const loadViews = async (items: Announcement[]) => {
+        try {
+            const views = await postViewsService.getForTargets('announcement', items.map((item) => item.id));
+            const summary: Record<string, ViewSummary> = {};
+
+            items.forEach((item) => {
+                summary[item.id] = { count: 0, hasViewed: false };
+            });
+
+            views.forEach((view) => {
+                if (!summary[view.target_id]) {
+                    summary[view.target_id] = { count: 0, hasViewed: false };
+                }
+                summary[view.target_id].count += 1;
+                if (view.user_id === user?.id) {
+                    summary[view.target_id].hasViewed = true;
+                }
+            });
+
+            setViewSummary(summary);
+        } catch (error) {
+            console.warn('Failed to load views', error);
+        }
+    };
+
+    const updateViewSummary = (targetId: string) => {
+        setViewSummary((prev) => {
+            const existing = prev[targetId] || { count: 0, hasViewed: false };
+            if (existing.hasViewed) return prev;
+            return {
+                ...prev,
+                [targetId]: {
+                    count: existing.count + 1,
+                    hasViewed: true,
+                },
+            };
+        });
     };
 
     const updateReactionSummary = (targetId: string, nextReaction?: ReactionType, prevReaction?: ReactionType) => {
@@ -135,6 +191,23 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         }
     };
 
+    const handleOpenDetail = async (announcement: Announcement) => {
+        if (canTrackView && user && !viewSummary[announcement.id]?.hasViewed) {
+            try {
+                await postViewsService.add('announcement', announcement.id, user.id);
+                updateViewSummary(announcement.id);
+            } catch (error: any) {
+                if (error?.code !== '23505') {
+                    console.warn('Failed to add view', error);
+                }
+            }
+        }
+
+        const currentCount = viewSummary[announcement.id]?.count || 0;
+        const nextCount = canTrackView && !viewSummary[announcement.id]?.hasViewed ? currentCount + 1 : currentCount;
+        navigation.navigate('AnnouncementDetail', { announcement, viewCount: nextCount });
+    };
+
     const openReactionPicker = (targetId: string) => {
         if (!canReact) return;
         setReactionPickerTargetId(targetId);
@@ -166,6 +239,11 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                     delete next[id];
                     return next;
                 });
+                setViewSummary((prev) => {
+                    const next = { ...prev };
+                    delete next[id];
+                    return next;
+                });
             } catch (error) {
                 Alert.alert('Error', 'Failed to delete. Please try again.');
             }
@@ -175,34 +253,51 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
     const renderItem = ({ item }: { item: Announcement }) => (
         <Pressable
             style={styles.card}
+            onPress={() => {
+                if (lastLongPressId.current === item.id) {
+                    lastLongPressId.current = null;
+                    return;
+                }
+                handleOpenDetail(item);
+            }}
             onLongPress={
                 isAdmin
-                    ? () => handleDelete(item.id)
+                    ? () => {
+                        markLongPress(item.id);
+                        handleDelete(item.id);
+                    }
                     : canReact
-                        ? () => openReactionPicker(item.id)
+                        ? () => {
+                            markLongPress(item.id);
+                            openReactionPicker(item.id);
+                        }
                         : undefined
             }
             delayLongPress={350}
             disabled={!isAdmin && !canReact}
         >
             <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardContent}>{item.content}</Text>
-            <View style={styles.reactionBar}>
+            <FormattedText text={item.content} style={styles.cardContent} />
+            <View style={styles.reactionRow}>
+                <View style={styles.reactionBar}>
                 {REACTIONS.filter((reaction) => (reactionSummary[item.id]?.counts?.[reaction.key] || 0) > 0).map((reaction) => {
                     const summary = reactionSummary[item.id];
                     const count = summary?.counts?.[reaction.key] || 0;
                     const isActive = summary?.userReaction === reaction.key;
                     return (
-                        <Pressable
-                            key={reaction.key}
-                            style={[
-                                styles.reactionChip,
-                                isActive && styles.reactionChipActive,
-                                !canReact && styles.reactionChipDisabled,
-                            ]}
-                            onPress={() => handleReact(item.id, reaction.key)}
-                            disabled={!canReact}
-                        >
+                            <Pressable
+                                key={reaction.key}
+                                style={[
+                                    styles.reactionChip,
+                                    isActive && styles.reactionChipActive,
+                                    !canReact && styles.reactionChipDisabled,
+                                ]}
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    handleReact(item.id, reaction.key);
+                                }}
+                                disabled={!canReact}
+                            >
                             <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
                             <Text style={[styles.reactionCount, isActive && styles.reactionCountActive]}>
                                 {count}
@@ -210,10 +305,22 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                         </Pressable>
                     );
                 })}
-                {canReact && (
-                    <Pressable style={styles.addReactionChip} onPress={() => openReactionPicker(item.id)}>
-                        <Text style={styles.addReactionText}>+</Text>
-                    </Pressable>
+                    {canReact && (
+                        <Pressable
+                            style={styles.addReactionChip}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                openReactionPicker(item.id);
+                            }}
+                        >
+                            <Text style={styles.addReactionText}>+</Text>
+                        </Pressable>
+                    )}
+                </View>
+                {showViewCount && (
+                    <View style={styles.viewCountChip}>
+                        <Text style={styles.viewCountText}>👁 {viewSummary[item.id]?.count || 0}</Text>
+                    </View>
                 )}
             </View>
             <View style={styles.cardFooter}>
@@ -370,10 +477,17 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         marginBottom: 12,
     },
+    reactionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        flexWrap: 'wrap',
+        marginBottom: 8,
+    },
     reactionBar: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        marginBottom: 8,
+        justifyContent: 'flex-end',
     },
     reactionChip: {
         flexDirection: 'row',
@@ -418,6 +532,21 @@ const styles = StyleSheet.create({
     },
     addReactionText: {
         fontSize: 14,
+        color: theme.colors.textSecondary,
+        fontWeight: '600',
+    },
+    viewCountChip: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 14,
+        backgroundColor: theme.colors.surface,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        marginLeft: 6,
+        marginBottom: 6,
+    },
+    viewCountText: {
+        fontSize: 12,
         color: theme.colors.textSecondary,
         fontWeight: '600',
     },

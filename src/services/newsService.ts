@@ -16,6 +16,21 @@ export const newsService = {
             id: item.id.toString(),
         })) as NewsArticle[];
     },
+    getById: async (id: string): Promise<NewsArticle | null> => {
+        const { data, error } = await supabase
+            .from('cbn_app_news')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error || !data) return null;
+
+        return {
+            ...data,
+            id: data.id.toString(),
+            author_name: data.author_name || '',
+        } as NewsArticle;
+    },
 
     create: async (
         headline: string,

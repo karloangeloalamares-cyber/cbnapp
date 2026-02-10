@@ -39,3 +39,27 @@ export interface Reaction {
   reaction: ReactionType;
   created_at: string;
 }
+
+export type PostTargetType = 'news' | 'announcement';
+
+export interface PostView {
+  id: string;
+  target_type: PostTargetType;
+  target_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export type NotificationType = 'news_posted' | 'announcement_posted';
+
+export interface AppNotification {
+  id: string;
+  recipient_id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  target_type: PostTargetType;
+  target_id: string;
+  created_at: string;
+  read_at: string | null;
+}

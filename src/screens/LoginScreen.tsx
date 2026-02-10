@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Pressable, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -21,8 +21,15 @@ export const LoginScreen = () => {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            <View style={styles.content}>
+        <KeyboardAvoidingView
+            style={[styles.container, { paddingTop: insets.top }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={insets.top + 12}
+        >
+            <ScrollView
+                contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+                keyboardShouldPersistTaps="handled"
+            >
                 <Image
                     source={require('../../assets/CBN_Logo-removebg-preview.png')}
                     style={styles.logoImage}
@@ -67,8 +74,8 @@ export const LoginScreen = () => {
                 <Pressable onPress={() => navigation.navigate('SignUp')}>
                     <Text style={styles.linkText}>Create an account</Text>
                 </Pressable>
-            </View>
-        </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 };
 
@@ -78,7 +85,7 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.background,
     },
     content: {
-        flex: 1,
+        flexGrow: 1,
         justifyContent: 'center',
         padding: 30,
     },

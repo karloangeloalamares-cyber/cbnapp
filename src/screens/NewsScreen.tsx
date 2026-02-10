@@ -1,31 +1,14 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { View, Text, FlatList, StyleSheet, Image, Pressable, Linking, RefreshControl, Platform, Alert, Modal, TouchableWithoutFeedback } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { newsService } from '../services/newsService';
 import { reactionService } from '../services/reactionService';
+import { postViewsService } from '../services/postViewsService';
 import { NewsArticle, ReactionType } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
+import { FormattedText } from '../components/FormattedText';
 import { theme } from '../theme';
-
-// Helper to render bold text marked with **text**
-const RichText = ({ text }: { text: string }) => {
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
-
-    return (
-        <Text style={styles.contentText}>
-            {parts.map((part, index) => {
-                if (part.startsWith('**') && part.endsWith('**')) {
-                    return (
-                        <Text key={index} style={styles.boldText}>
-                            {part.slice(2, -2)}
-                        </Text>
-                    );
-                }
-                return <Text key={index}>{part}</Text>;
-            })}
-        </Text>
-    );
-};
 
 const formatTime = (dateString: string): string => {
     const date = new Date(dateString);
@@ -95,21 +78,28 @@ const emptyReactionCounts = (): Record<ReactionType, number> => ({
 });
 
 type ReactionSummary = { counts: Record<ReactionType, number>; userReaction?: ReactionType };
+type ViewSummary = { count: number; hasViewed: boolean };
 
 const NewsCard = ({
     article,
+    onPress,
     onLongPress,
     reactionSummary,
     onReact,
     onOpenPicker,
     canReact,
+    viewCount,
+    showViewCount,
 }: {
     article: NewsArticle;
+    onPress?: () => void;
     onLongPress?: () => void;
     reactionSummary?: ReactionSummary;
     onReact?: (reaction: ReactionType) => void;
     onOpenPicker?: () => void;
     canReact: boolean;
+    viewCount: number;
+    showViewCount: boolean;
 }) => {
     const handleLinkPress = () => {
         if (article.link_url) {
@@ -120,9 +110,10 @@ const NewsCard = ({
     return (
         <Pressable
             style={styles.card}
+            onPress={onPress}
             onLongPress={onLongPress}
             delayLongPress={350}
-            disabled={!onLongPress}
+            disabled={!onLongPress && !onPress}
         >
             {/* Image */}
             {article.image_url && (
@@ -137,19 +128,26 @@ const NewsCard = ({
             <View style={styles.contentContainer}>
                 {/* Rich text content with bold markers */}
                 {article.content ? (
-                    <RichText text={article.content} />
+                    <FormattedText text={article.content} style={styles.contentText} />
                 ) : null}
 
                 {/* Link section */}
                 {article.link_url && (
-                    <Pressable onPress={handleLinkPress} style={styles.linkContainer}>
+                    <Pressable
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            handleLinkPress();
+                        }}
+                        style={styles.linkContainer}
+                    >
                         <Text style={styles.linkUrl}>{article.link_url}</Text>
                     </Pressable>
                 )}
 
                 {/* Reactions */}
-                <View style={styles.reactionBar}>
-                    {REACTIONS.filter((reaction) => (reactionSummary?.counts?.[reaction.key] || 0) > 0).map((reaction) => {
+                <View style={styles.reactionRow}>
+                    <View style={styles.reactionBar}>
+                        {REACTIONS.filter((reaction) => (reactionSummary?.counts?.[reaction.key] || 0) > 0).map((reaction) => {
                         const count = reactionSummary?.counts?.[reaction.key] || 0;
                         const isActive = reactionSummary?.userReaction === reaction.key;
                         return (
@@ -160,7 +158,10 @@ const NewsCard = ({
                                     isActive && styles.reactionChipActive,
                                     !canReact && styles.reactionChipDisabled,
                                 ]}
-                                onPress={() => onReact?.(reaction.key)}
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    onReact?.(reaction.key);
+                                }}
                                 disabled={!canReact}
                             >
                                 <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
@@ -170,10 +171,22 @@ const NewsCard = ({
                             </Pressable>
                         );
                     })}
-                    {canReact && (
-                        <Pressable style={styles.addReactionChip} onPress={onOpenPicker}>
-                            <Text style={styles.addReactionText}>+</Text>
-                        </Pressable>
+                        {canReact && (
+                            <Pressable
+                                style={styles.addReactionChip}
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    onOpenPicker?.();
+                                }}
+                            >
+                                <Text style={styles.addReactionText}>+</Text>
+                            </Pressable>
+                        )}
+                    </View>
+                    {showViewCount && (
+                        <View style={styles.viewCountChip}>
+                            <Text style={styles.viewCountText}>👁 {viewCount}</Text>
+                        </View>
                     )}
                 </View>
 
@@ -189,18 +202,33 @@ type ListItem =
     | { type: 'article'; article: NewsArticle; key: string };
 
 export const NewsScreen = () => {
+    const navigation = useNavigation<any>();
     const [news, setNews] = useState<NewsArticle[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [reactionSummary, setReactionSummary] = useState<Record<string, ReactionSummary>>({});
+    const [viewSummary, setViewSummary] = useState<Record<string, ViewSummary>>({});
     const [reactionPickerTargetId, setReactionPickerTargetId] = useState<string | null>(null);
+    const lastLongPressId = useRef<string | null>(null);
     const { user } = useAuth();
     const isAdmin = authService.isAdmin(user);
     const canReact = !!user && !isAdmin;
+    const canTrackView = !!user && !isAdmin;
+    const showViewCount = isAdmin;
+
+    const markLongPress = (id: string) => {
+        lastLongPressId.current = id;
+        setTimeout(() => {
+            if (lastLongPressId.current === id) {
+                lastLongPressId.current = null;
+            }
+        }, 400);
+    };
 
     const loadNews = async () => {
         const articles = await newsService.getAll();
         setNews(articles);
         await loadReactions(articles);
+        await loadViews(articles);
     };
 
     useEffect(() => {
@@ -236,6 +264,45 @@ export const NewsScreen = () => {
         } catch (error) {
             console.warn('Failed to load reactions', error);
         }
+    };
+
+    const loadViews = async (articles: NewsArticle[]) => {
+        try {
+            const views = await postViewsService.getForTargets('news', articles.map((item) => item.id));
+            const summary: Record<string, ViewSummary> = {};
+
+            articles.forEach((article) => {
+                summary[article.id] = { count: 0, hasViewed: false };
+            });
+
+            views.forEach((view) => {
+                if (!summary[view.target_id]) {
+                    summary[view.target_id] = { count: 0, hasViewed: false };
+                }
+                summary[view.target_id].count += 1;
+                if (view.user_id === user?.id) {
+                    summary[view.target_id].hasViewed = true;
+                }
+            });
+
+            setViewSummary(summary);
+        } catch (error) {
+            console.warn('Failed to load views', error);
+        }
+    };
+
+    const updateViewSummary = (targetId: string) => {
+        setViewSummary((prev) => {
+            const existing = prev[targetId] || { count: 0, hasViewed: false };
+            if (existing.hasViewed) return prev;
+            return {
+                ...prev,
+                [targetId]: {
+                    count: existing.count + 1,
+                    hasViewed: true,
+                },
+            };
+        });
     };
 
     const updateReactionSummary = (targetId: string, nextReaction?: ReactionType, prevReaction?: ReactionType) => {
@@ -278,6 +345,23 @@ export const NewsScreen = () => {
         }
     };
 
+    const handleOpenDetail = async (article: NewsArticle) => {
+        if (canTrackView && user && !viewSummary[article.id]?.hasViewed) {
+            try {
+                await postViewsService.add('news', article.id, user.id);
+                updateViewSummary(article.id);
+            } catch (error: any) {
+                if (error?.code !== '23505') {
+                    console.warn('Failed to add view', error);
+                }
+            }
+        }
+
+        const currentCount = viewSummary[article.id]?.count || 0;
+        const nextCount = canTrackView && !viewSummary[article.id]?.hasViewed ? currentCount + 1 : currentCount;
+        navigation.navigate('NewsDetail', { article, viewCount: nextCount });
+    };
+
     const openReactionPicker = (targetId: string) => {
         if (!canReact) return;
         setReactionPickerTargetId(targetId);
@@ -305,6 +389,11 @@ export const NewsScreen = () => {
                 await newsService.delete(id);
                 setNews((prev) => prev.filter((item) => item.id !== id));
                 setReactionSummary((prev) => {
+                    const next = { ...prev };
+                    delete next[id];
+                    return next;
+                });
+                setViewSummary((prev) => {
                     const next = { ...prev };
                     delete next[id];
                     return next;
@@ -347,17 +436,32 @@ export const NewsScreen = () => {
         return (
             <NewsCard
                 article={item.article}
+                onPress={() => {
+                    if (lastLongPressId.current === item.article.id) {
+                        lastLongPressId.current = null;
+                        return;
+                    }
+                    handleOpenDetail(item.article);
+                }}
                 onLongPress={
                     isAdmin
-                        ? () => handleDelete(item.article.id)
+                        ? () => {
+                            markLongPress(item.article.id);
+                            handleDelete(item.article.id);
+                        }
                         : canReact
-                            ? () => openReactionPicker(item.article.id)
+                            ? () => {
+                                markLongPress(item.article.id);
+                                openReactionPicker(item.article.id);
+                            }
                             : undefined
                 }
                 reactionSummary={reactionSummary[item.article.id]}
                 onReact={(reaction) => handleReact(item.article.id, reaction)}
                 onOpenPicker={() => openReactionPicker(item.article.id)}
                 canReact={canReact}
+                viewCount={viewSummary[item.article.id]?.count || 0}
+                showViewCount={showViewCount}
             />
         );
     };
@@ -501,9 +605,6 @@ const styles = StyleSheet.create({
         color: '#303030',
         lineHeight: 20,
     },
-    boldText: {
-        fontWeight: 'bold',
-    },
     linkContainer: {
         marginTop: 12,
     },
@@ -521,11 +622,18 @@ const styles = StyleSheet.create({
         color: '#4A90A4',
         textDecorationLine: 'underline',
     },
-    reactionBar: {
+    reactionRow: {
         flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
         flexWrap: 'wrap',
         marginTop: 12,
         marginBottom: 4,
+    },
+    reactionBar: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-end',
     },
     reactionChip: {
         flexDirection: 'row',
@@ -570,6 +678,21 @@ const styles = StyleSheet.create({
     },
     addReactionText: {
         fontSize: 14,
+        color: theme.colors.textSecondary,
+        fontWeight: '600',
+    },
+    viewCountChip: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 14,
+        backgroundColor: theme.colors.surface,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        marginLeft: 6,
+        marginBottom: 6,
+    },
+    viewCountText: {
+        fontSize: 12,
         color: theme.colors.textSecondary,
         fontWeight: '600',
     },

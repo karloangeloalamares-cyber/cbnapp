@@ -8,6 +8,9 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { SignUpScreen } from './src/screens/SignUpScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AdminPostScreen } from './src/screens/AdminPostScreen';
+import { NewsDetailScreen } from './src/screens/NewsDetailScreen';
+import { AnnouncementDetailScreen } from './src/screens/AnnouncementDetailScreen';
+import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { theme } from './src/theme';
 
 const Stack = createStackNavigator();
@@ -32,6 +35,21 @@ const AppNavigator = () => {
               presentation: 'modal',
               headerShown: false
             }}
+          />
+          <Stack.Screen
+            name="NewsDetail"
+            component={NewsDetailScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AnnouncementDetail"
+            component={AnnouncementDetailScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ headerShown: false }}
           />
         </>
       )}

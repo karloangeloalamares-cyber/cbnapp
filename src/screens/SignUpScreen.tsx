@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Platform, Alert, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Platform, Alert, Pressable, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -47,14 +47,21 @@ export const SignUpScreen = () => {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <KeyboardAvoidingView
+            style={[styles.container, { paddingTop: insets.top }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={insets.top + 12}
+        >
             <Pressable
                 style={[styles.backButton, { top: insets.top + 8 }]}
                 onPress={() => navigation.goBack()}
             >
                 <Text style={styles.backText}>&lt; Back</Text>
             </Pressable>
-            <View style={styles.content}>
+            <ScrollView
+                contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
+                keyboardShouldPersistTaps="handled"
+            >
                 <Image
                     source={require('../../assets/CBN_Logo-removebg-preview.png')}
                     style={styles.logoImage}
@@ -113,8 +120,8 @@ export const SignUpScreen = () => {
                 <Pressable onPress={() => navigation.goBack()}>
                     <Text style={styles.linkText}>Already have an account? Log in</Text>
                 </Pressable>
-            </View>
-        </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 };
 
@@ -136,7 +143,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     content: {
-        flex: 1,
+        flexGrow: 1,
         justifyContent: 'center',
         padding: 30,
     },

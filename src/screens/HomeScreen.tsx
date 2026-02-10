@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Image, Modal, TouchableWithoutFeedback } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NewsScreen } from './NewsScreen';
 import { MessageBoardScreen } from './MessageBoardScreen';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
+import { notificationService } from '../services/notificationService';
+import { supabase } from '../services/supabaseClient';
 import { theme } from '../theme';
 
 type TabType = 'news' | 'announcements';
@@ -14,14 +16,65 @@ export const HomeScreen = () => {
     const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<TabType>('news');
     const [showPostOptions, setShowPostOptions] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
     const navigation = useNavigation<any>();
     const { user, logout } = useAuth();
     const isAdmin = authService.isAdmin(user);
+    const canNotify = !!user && !isAdmin;
 
     const handleNewPost = (type: 'news' | 'announcement') => {
         setShowPostOptions(false);
         navigation.navigate('AdminPost', { type });
     };
+
+    const loadUnreadCount = useCallback(async () => {
+        if (!canNotify || !user) {
+            setUnreadCount(0);
+            return;
+        }
+        try {
+            const count = await notificationService.getUnreadCount(user.id);
+            setUnreadCount(count);
+        } catch (error) {
+            console.warn('Failed to load unread count', error);
+        }
+    }, [canNotify, user]);
+
+    useEffect(() => {
+        loadUnreadCount();
+    }, [loadUnreadCount]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadUnreadCount();
+        }, [loadUnreadCount])
+    );
+
+    useEffect(() => {
+        if (!canNotify || !user) return;
+
+        const channel = supabase
+            .channel(`cbn-app-notification-badge-${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'cbn_app_notifications',
+                    filter: `recipient_id=eq.${user.id}`,
+                },
+                (payload) => {
+                    if (!payload.new.read_at) {
+                        setUnreadCount((prev) => prev + 1);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [canNotify, user]);
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -35,9 +88,26 @@ export const HomeScreen = () => {
                     />
                     <Text style={styles.headerTitle}>CBN Unfiltered</Text>
                 </View>
-                <Pressable onPress={logout} style={styles.logoutButton}>
-                    <Text style={styles.logoutText}>Logout</Text>
-                </Pressable>
+                <View style={styles.headerActions}>
+                    {canNotify && (
+                        <Pressable
+                            style={styles.bellButton}
+                            onPress={() => navigation.navigate('Notifications')}
+                        >
+                            <Text style={styles.bellIcon}>🔔</Text>
+                            {unreadCount > 0 && (
+                                <View style={styles.badge}>
+                                    <Text style={styles.badgeText}>
+                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                    </Text>
+                                </View>
+                            )}
+                        </Pressable>
+                    )}
+                    <Pressable onPress={logout} style={styles.logoutButton}>
+                        <Text style={styles.logoutText}>Logout</Text>
+                    </Pressable>
+                </View>
             </View>
 
             {/* Tab Bar */}
@@ -153,6 +223,37 @@ const styles = StyleSheet.create({
     logo: {
         width: 36,
         height: 36,
+    },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    bellButton: {
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        backgroundColor: theme.colors.surface,
+        borderRadius: 6,
+        marginRight: 8,
+    },
+    bellIcon: {
+        fontSize: 16,
+    },
+    badge: {
+        position: 'absolute',
+        top: -6,
+        right: -6,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: '#EF4444',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+    badgeText: {
+        fontSize: 10,
+        color: '#FFFFFF',
+        fontWeight: '700',
     },
     logoutButton: {
         paddingHorizontal: 12,
