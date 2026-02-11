@@ -7,7 +7,7 @@ interface AuthContextType {
     loading: boolean;
     login: (email: string, password?: string) => Promise<boolean>;
     signUp: (email: string, password: string, displayName: string) => Promise<{ success: boolean; needsEmailConfirmation: boolean }>;
-    logout: () => void;
+    logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -44,7 +44,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true, needsEmailConfirmation };
     };
 
-    const logout = () => {
+    const logout = async () => {
+        await authService.logout();
         setUser(null);
     };
 

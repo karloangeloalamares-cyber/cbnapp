@@ -13,7 +13,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kalamares.cbnapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,10 +22,18 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.kalamares.cbnapp",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "60214d42-0c2f-408f-8930-e7bd7b0cf54f"
+      }
+    },
+    "owner": "kalamares"
   }
 }

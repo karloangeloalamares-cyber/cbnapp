@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { newsService } from '../services/newsService';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../services/supabaseClient';
 import { theme } from '../theme';
 
 import { useRoute } from '@react-navigation/native';
@@ -105,6 +106,37 @@ export const AdminPostScreen = () => {
         });
     };
 
+    const buildPushBody = (value: string, fallback: string) => {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed.slice(0, 140) : fallback;
+    };
+
+    const sendPush = async (payload: {
+        type: 'news_posted' | 'announcement_posted';
+        title: string;
+        body: string;
+        target_type: 'news' | 'announcement';
+        target_id: string;
+    }): Promise<{ ok: boolean; warning: string | null }> => {
+        try {
+            await supabase.auth.refreshSession();
+            const { data, error } = await supabase.functions.invoke('send-push', { body: payload });
+            if (error) {
+                return { ok: false, warning: error.message || 'Unknown push error.' };
+            }
+
+            const failed = typeof (data as any)?.failed === 'number' ? (data as any).failed : 0;
+            if (failed > 0) {
+                const label = failed === 1 ? 'notification' : 'notifications';
+                return { ok: false, warning: `${failed} ${label} failed to send.` };
+            }
+
+            return { ok: true, warning: null };
+        } catch (error: any) {
+            return { ok: false, warning: error?.message ?? 'Push request failed.' };
+        }
+    };
+
     const handleSend = async () => {
         if (isNews && !message.trim() && !imageUri) {
             showAlert('Error', 'Please add a message or image.');
@@ -118,21 +150,44 @@ export const AdminPostScreen = () => {
 
         setSending(true);
         try {
+            let pushResult: { ok: boolean; warning: string | null } = { ok: true, warning: null };
             if (isNews) {
-                await newsService.create(
+                const created = await newsService.create(
                     '', // No headline
                     message.trim(),
                     user!.id,
                     user!.display_name,
                     imageUri || undefined
                 );
+                pushResult = await sendPush({
+                    type: 'news_posted',
+                    title: 'News Update',
+                    body: buildPushBody(message, 'New photo update posted.'),
+                    target_type: 'news',
+                    target_id: created.id,
+                });
             } else {
-                await announcementService.create(
+                const created = await announcementService.create(
                     title.trim(),
                     message.trim(),
                     user!.id,
                     user!.display_name
                 );
+                pushResult = await sendPush({
+                    type: 'announcement_posted',
+                    title: `Announcement: ${title.trim()}`,
+                    body: buildPushBody(message, 'Open the app to view the full announcement.'),
+                    target_type: 'announcement',
+                    target_id: created.id,
+                });
+            }
+
+            if (!pushResult.ok && pushResult.warning) {
+                console.warn('Push send failed', pushResult.warning);
+                showAlert('Posted with Push Issues', `Your post was created, but push failed: ${pushResult.warning}`, () => {
+                    navigation.goBack();
+                });
+                return;
             }
 
             showAlert('Sent!', 'Your post has been created.', () => {
@@ -149,12 +204,15 @@ export const AdminPostScreen = () => {
     };
 
     const hasSelection = Math.abs(messageSelection.end - messageSelection.start) > 0;
+    const keyboardOffset = Platform.OS === 'ios' ? insets.top + 12 : 0;
+    const composerPaddingBottom =
+        Platform.OS === 'android' ? Math.max(insets.bottom, 10) : insets.bottom + 10;
 
     return (
         <KeyboardAvoidingView
             style={[styles.container, { paddingTop: insets.top }]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={insets.top + 12}
+            keyboardVerticalOffset={keyboardOffset}
         >
             {/* Header */}
             <View style={styles.header}>
@@ -193,18 +251,7 @@ export const AdminPostScreen = () => {
             </View>
 
             {/* Composer */}
-            <View style={[styles.composerContainer, { paddingBottom: insets.bottom + 10 }]}>
-                {hasSelection && inputFocused && (
-                    <View style={styles.formatToolbar}>
-                        <Pressable style={styles.formatButton} onPress={() => applyFormatting('*')}>
-                            <Text style={styles.formatButtonTextBold}>B</Text>
-                        </Pressable>
-                        <Pressable style={styles.formatButton} onPress={() => applyFormatting('_')}>
-                            <Text style={styles.formatButtonTextItalic}>I</Text>
-                        </Pressable>
-                    </View>
-                )}
-
+            <View style={[styles.composerContainer, { paddingBottom: composerPaddingBottom }]}>
                 <View style={styles.composerRow}>
                     <TextInput
                         ref={messageInputRef}
@@ -235,16 +282,26 @@ export const AdminPostScreen = () => {
                     </Pressable>
                 )}
 
-                <Pressable
-                    style={[styles.sendButton, sending && styles.sendButtonDisabled]}
-                    onPress={handleSend}
-                    disabled={sending}
-                >
-                    <Text style={styles.sendButtonText}>
-                        {sending ? '...' : '>'}
-                    </Text>
-                </Pressable>
+                    <Pressable
+                        style={[styles.sendButton, sending && styles.sendButtonDisabled]}
+                        onPress={handleSend}
+                        disabled={sending}
+                    >
+                        <Text style={styles.sendButtonText}>
+                            {sending ? '...' : '>'}
+                        </Text>
+                    </Pressable>
                 </View>
+                {hasSelection && inputFocused && (
+                    <View style={styles.formatToolbar}>
+                        <Pressable style={styles.formatButton} onPress={() => applyFormatting('*')}>
+                            <Text style={styles.formatButtonTextBold}>B</Text>
+                        </Pressable>
+                        <Pressable style={styles.formatButton} onPress={() => applyFormatting('_')}>
+                            <Text style={styles.formatButtonTextItalic}>I</Text>
+                        </Pressable>
+                    </View>
+                )}
             </View>
         </KeyboardAvoidingView>
     );
@@ -282,7 +339,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        marginBottom: 6,
+        marginTop: 8,
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 18,

@@ -1,6 +1,7 @@
-import React from 'react';
-import { StatusBar } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useEffect } from 'react';
+import { Alert, StatusBar } from 'react-native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -11,9 +12,15 @@ import { AdminPostScreen } from './src/screens/AdminPostScreen';
 import { NewsDetailScreen } from './src/screens/NewsDetailScreen';
 import { AnnouncementDetailScreen } from './src/screens/AnnouncementDetailScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { pushNotificationService } from './src/services/pushNotificationService';
+import { newsService } from './src/services/newsService';
+import { announcementService } from './src/services/announcementService';
+import { postViewsService } from './src/services/postViewsService';
+import { authService } from './src/services/authService';
 import { theme } from './src/theme';
 
 const Stack = createStackNavigator();
+const navigationRef = createNavigationContainerRef<any>();
 
 const AppNavigator = () => {
   const { user } = useAuth();
@@ -57,12 +64,97 @@ const AppNavigator = () => {
   );
 };
 
+const AppWithNotifications = () => {
+  const { user } = useAuth();
+  const isAdmin = authService.isAdmin(user);
+
+  useEffect(() => {
+    if (!user || isAdmin) return;
+    let active = true;
+
+    (async () => {
+      const result = await pushNotificationService.registerForPushNotifications(user.id);
+      if (!active) return;
+
+      if (result.error) {
+        console.warn('Push registration failed', result.error);
+        Alert.alert('Push Setup Error', result.error);
+        return;
+      }
+
+      console.log('Push token registered successfully');
+    })().catch((error) => {
+      console.warn('Push registration failed', error);
+      Alert.alert('Push Setup Error', String(error));
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [user, isAdmin]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(async (response) => {
+      if (!navigationRef.isReady()) return;
+      const data = response.notification.request.content.data as {
+        target_type?: 'news' | 'announcement';
+        target_id?: string;
+      };
+
+      if (!data?.target_type || !data?.target_id) return;
+
+      try {
+        if (data.target_type === 'news') {
+          const article = await newsService.getById(data.target_id);
+          if (!article) return;
+          if (!isAdmin) {
+            try {
+              await postViewsService.add('news', article.id, user.id);
+            } catch (error: any) {
+              if (error?.code !== '23505') {
+                console.warn('Failed to add view', error);
+              }
+            }
+          }
+          const views = await postViewsService.getForTargets('news', [article.id]);
+          navigationRef.navigate('NewsDetail', { article, viewCount: views.length });
+        }
+
+        if (data.target_type === 'announcement') {
+          const announcement = await announcementService.getById(data.target_id);
+          if (!announcement) return;
+          if (!isAdmin) {
+            try {
+              await postViewsService.add('announcement', announcement.id, user.id);
+            } catch (error: any) {
+              if (error?.code !== '23505') {
+                console.warn('Failed to add view', error);
+              }
+            }
+          }
+          const views = await postViewsService.getForTargets('announcement', [announcement.id]);
+          navigationRef.navigate('AnnouncementDetail', { announcement, viewCount: views.length });
+        }
+      } catch (error) {
+        console.warn('Failed to handle notification', error);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [user, isAdmin]);
+
+  return <AppNavigator />;
+};
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.header} />
       <AuthProvider>
         <NavigationContainer
+          ref={navigationRef}
           theme={{
             dark: false,
             colors: {
@@ -81,7 +173,7 @@ export default function App() {
             },
           }}
         >
-          <AppNavigator />
+          <AppWithNotifications />
         </NavigationContainer>
       </AuthProvider>
     </SafeAreaProvider>

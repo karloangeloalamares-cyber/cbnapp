@@ -121,6 +121,36 @@ create policy "Users can add views." on public.cbn_app_post_views for insert wit
   auth.uid() = user_id and exists (select 1 from public.cbn_app_profiles where id = auth.uid() and role = 'user')
 );
 
+-- 5B. PUSH TOKENS (For Push Notifications)
+create table if not exists public.cbn_app_push_tokens (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references public.cbn_app_profiles(id) not null,
+  token text not null unique,
+  platform text not null check (platform in ('ios', 'android', 'web')),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists cbn_app_push_tokens_user_idx on public.cbn_app_push_tokens (user_id);
+
+alter table public.cbn_app_push_tokens enable row level security;
+drop policy if exists "Users can view own push tokens." on public.cbn_app_push_tokens;
+create policy "Users can view own push tokens." on public.cbn_app_push_tokens for select using (
+  auth.uid() = user_id
+);
+drop policy if exists "Users can insert own push tokens." on public.cbn_app_push_tokens;
+create policy "Users can insert own push tokens." on public.cbn_app_push_tokens for insert with check (
+  auth.uid() = user_id
+);
+drop policy if exists "Users can update own push tokens." on public.cbn_app_push_tokens;
+create policy "Users can update own push tokens." on public.cbn_app_push_tokens for update using (
+  auth.uid() = user_id
+);
+drop policy if exists "Users can delete own push tokens." on public.cbn_app_push_tokens;
+create policy "Users can delete own push tokens." on public.cbn_app_push_tokens for delete using (
+  auth.uid() = user_id
+);
+
 -- 6. NOTIFICATIONS (In-App)
 create table if not exists public.cbn_app_notifications (
   id uuid default uuid_generate_v4() primary key,

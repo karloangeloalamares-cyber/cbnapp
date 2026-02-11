@@ -41,3 +41,9 @@ yarn-error.*
 /android
 
 .env
+
+# Firebase service account (secret)
+*-firebase-adminsdk-*.json
+
+# Supabase local temp
+supabase/.temp/
