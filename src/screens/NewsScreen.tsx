@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, FlatList, StyleSheet, Image, Pressable, Linking, RefreshControl, Platform, Alert, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Image, Pressable, Linking, RefreshControl, Platform, Alert, Modal, TouchableWithoutFeedback, Share } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { newsService } from '../services/newsService';
 import { reactionService } from '../services/reactionService';
@@ -7,16 +7,17 @@ import { postViewsService } from '../services/postViewsService';
 import { NewsArticle, ReactionType } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
-import { FormattedText } from '../components/FormattedText';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
+import { MessageBubble } from '../components/MessageBubble';
+import { SelectionHeader } from '../components/SelectionHeader';
+import * as Clipboard from 'expo-clipboard';
+import { downloadAsync, cacheDirectory } from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
-const formatTime = (dateString: string): string => {
+const getDateKey = (dateString: string): string => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-    });
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 };
 
 const formatDateLabel = (dateString: string): string => {
@@ -25,7 +26,6 @@ const formatDateLabel = (dateString: string): string => {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // Reset time for comparison
     const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
@@ -43,19 +43,11 @@ const formatDateLabel = (dateString: string): string => {
     }
 };
 
-const getDateKey = (dateString: string): string => {
-    const date = new Date(dateString);
-    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-};
-
-// Date separator component
 const DateSeparator = ({ label }: { label: string }) => (
     <View style={styles.dateSeparatorContainer}>
-        <View style={styles.dateSeparatorLine} />
         <View style={styles.dateSeparatorBadge}>
             <Text style={styles.dateSeparatorText}>{label}</Text>
         </View>
-        <View style={styles.dateSeparatorLine} />
     </View>
 );
 
@@ -80,152 +72,36 @@ const emptyReactionCounts = (): Record<ReactionType, number> => ({
 type ReactionSummary = { counts: Record<ReactionType, number>; userReaction?: ReactionType };
 type ViewSummary = { count: number; hasViewed: boolean };
 
-const NewsCard = ({
-    article,
-    onPress,
-    onLongPress,
-    reactionSummary,
-    onReact,
-    onOpenPicker,
-    canReact,
-    viewCount,
-    showViewCount,
-}: {
-    article: NewsArticle;
-    onPress?: () => void;
-    onLongPress?: () => void;
-    reactionSummary?: ReactionSummary;
-    onReact?: (reaction: ReactionType) => void;
-    onOpenPicker?: () => void;
-    canReact: boolean;
-    viewCount: number;
-    showViewCount: boolean;
-}) => {
-    const handleLinkPress = () => {
-        if (article.link_url) {
-            Linking.openURL(article.link_url);
-        }
-    };
-
-    return (
-        <Pressable
-            style={styles.card}
-            onPress={onPress}
-            onLongPress={onLongPress}
-            delayLongPress={350}
-            disabled={!onLongPress && !onPress}
-        >
-            {/* Image */}
-            {article.image_url && (
-                <Image
-                    source={{ uri: article.image_url }}
-                    style={styles.heroImage}
-                    resizeMode="cover"
-                />
-            )}
-
-            {/* Content */}
-            <View style={styles.contentContainer}>
-                {/* Rich text content with bold markers */}
-                {article.content ? (
-                    <FormattedText text={article.content} style={styles.contentText} />
-                ) : null}
-
-                {/* Link section */}
-                {article.link_url && (
-                    <Pressable
-                        onPress={(e) => {
-                            e.stopPropagation();
-                            handleLinkPress();
-                        }}
-                        style={styles.linkContainer}
-                    >
-                        <Text style={styles.linkUrl}>{article.link_url}</Text>
-                    </Pressable>
-                )}
-
-                {/* Reactions */}
-                <View style={styles.reactionRow}>
-                    <View style={styles.reactionBar}>
-                        {REACTIONS.filter((reaction) => (reactionSummary?.counts?.[reaction.key] || 0) > 0).map((reaction) => {
-                        const count = reactionSummary?.counts?.[reaction.key] || 0;
-                        const isActive = reactionSummary?.userReaction === reaction.key;
-                        return (
-                            <Pressable
-                                key={reaction.key}
-                                style={[
-                                    styles.reactionChip,
-                                    isActive && styles.reactionChipActive,
-                                    !canReact && styles.reactionChipDisabled,
-                                ]}
-                                onPress={(e) => {
-                                    e.stopPropagation();
-                                    onReact?.(reaction.key);
-                                }}
-                                disabled={!canReact}
-                            >
-                                <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
-                                <Text style={[styles.reactionCount, isActive && styles.reactionCountActive]}>
-                                    {count}
-                                </Text>
-                            </Pressable>
-                        );
-                    })}
-                        {canReact && (
-                            <Pressable
-                                style={styles.addReactionChip}
-                                onPress={(e) => {
-                                    e.stopPropagation();
-                                    onOpenPicker?.();
-                                }}
-                            >
-                                <Text style={styles.addReactionText}>+</Text>
-                            </Pressable>
-                        )}
-                    </View>
-                    {showViewCount && (
-                        <View style={styles.viewCountChip}>
-                            <Text style={styles.viewCountText}>👁 {viewCount}</Text>
-                        </View>
-                    )}
-                </View>
-
-                {/* Timestamp */}
-                <Text style={styles.timestamp}>{formatTime(article.created_at)}</Text>
-            </View>
-        </Pressable>
-    );
-};
-
 type ListItem =
     | { type: 'date'; label: string; key: string }
     | { type: 'article'; article: NewsArticle; key: string };
 
 export const NewsScreen = () => {
     const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
+
+    // Background Pattern (Placeholder for Doodle)
+    // We can use the theme background which is now Beige #EFE7DE
+
     const [news, setNews] = useState<NewsArticle[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [reactionSummary, setReactionSummary] = useState<Record<string, ReactionSummary>>({});
     const [viewSummary, setViewSummary] = useState<Record<string, ViewSummary>>({});
     const [reactionPickerTargetId, setReactionPickerTargetId] = useState<string | null>(null);
-    const lastLongPressId = useRef<string | null>(null);
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const { user } = useAuth();
     const isAdmin = authService.isAdmin(user);
     const canReact = !!user && !isAdmin;
     const canTrackView = !!user && !isAdmin;
     const showViewCount = isAdmin;
 
-    const markLongPress = (id: string) => {
-        lastLongPressId.current = id;
-        setTimeout(() => {
-            if (lastLongPressId.current === id) {
-                lastLongPressId.current = null;
-            }
-        }, 400);
-    };
-
     const loadNews = async () => {
         const articles = await newsService.getAll();
+        // Reverse for inverted list (oldest first in array -> becomes top of inverted list)
+        // Wait, inverted list means bottom is index 0. So latest should be index 0. 
+        // newsService.getAll() returns latest first (ORDER BY created_at DESC).
+        // So index 0 is latest. Inverted list renders index 0 at the bottom.
+        // So we want the array to be [Latest, ..., Oldest]. 
         setNews(articles);
         await loadReactions(articles);
         await loadViews(articles);
@@ -345,7 +221,72 @@ export const NewsScreen = () => {
         }
     };
 
+    const toggleSelection = (id: string) => {
+        setSelectedItems((prev) => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    const clearSelection = () => {
+        setSelectedItems(new Set());
+    };
+
+    const handleCopy = async () => {
+        const selectedArticles = news.filter((item) => selectedItems.has(item.id));
+        const textToCopy = selectedArticles.map((item) => {
+            const parts: string[] = [];
+            if (item.content) parts.push(item.content);
+            if (item.image_url) parts.push(item.image_url);
+            if (item.link_url) parts.push(item.link_url);
+            return parts.join('\n');
+        }).join('\n\n');
+        await Clipboard.setStringAsync(textToCopy);
+        Alert.alert('Copied', 'Messages copied to clipboard');
+        clearSelection();
+    };
+
+    const handleDelete = async () => {
+        if (!isAdmin) {
+            Alert.alert('Permission Denied', 'Only admins can delete messages.');
+            return;
+        }
+
+        Alert.alert(
+            'Delete Messages',
+            `Are you sure you want to delete ${selectedItems.size} message(s)?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        // Optimistic update
+                        const idsToDelete = Array.from(selectedItems);
+                        setNews((prev) => prev.filter((item) => !selectedItems.has(item.id)));
+                        clearSelection();
+
+                        // Actual delete calls
+                        for (const id of idsToDelete) {
+                            await newsService.delete(id);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const handleOpenDetail = async (article: NewsArticle) => {
+        if (selectedItems.size > 0) {
+            toggleSelection(article.id);
+            return;
+        }
+
         if (canTrackView && user && !viewSummary[article.id]?.hasViewed) {
             try {
                 await postViewsService.add('news', article.id, user.id);
@@ -356,13 +297,13 @@ export const NewsScreen = () => {
                 }
             }
         }
-
-        const currentCount = viewSummary[article.id]?.count || 0;
-        const nextCount = canTrackView && !viewSummary[article.id]?.hasViewed ? currentCount + 1 : currentCount;
-        navigation.navigate('NewsDetail', { article, viewCount: nextCount });
+        // No detail view needed for WhatsApp style usually, but keeping logic just in case
+        // The user said "no need to long press a content to view it". 
+        // Maybe we just don't do anything on press?
     };
 
     const openReactionPicker = (targetId: string) => {
+        if (selectedItems.size > 0) return;
         if (!canReact) return;
         setReactionPickerTargetId(targetId);
     };
@@ -371,60 +312,58 @@ export const NewsScreen = () => {
         setReactionPickerTargetId(null);
     };
 
-    const confirmDelete = (onConfirm: () => void) => {
-        if (Platform.OS === 'web') {
-            const confirmFn = (globalThis as any)?.confirm as ((message: string) => boolean) | undefined;
-            if (confirmFn && confirmFn('Delete this news post?')) onConfirm();
-            return;
-        }
-        Alert.alert('Delete Post', 'Delete this news post?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: onConfirm },
-        ]);
-    };
-
-    const handleDelete = (id: string) => {
-        confirmDelete(async () => {
-            try {
-                await newsService.delete(id);
-                setNews((prev) => prev.filter((item) => item.id !== id));
-                setReactionSummary((prev) => {
-                    const next = { ...prev };
-                    delete next[id];
-                    return next;
-                });
-                setViewSummary((prev) => {
-                    const next = { ...prev };
-                    delete next[id];
-                    return next;
-                });
-            } catch (error) {
-                Alert.alert('Error', 'Failed to delete. Please try again.');
-            }
-        });
-    };
-
-    // Group articles with date separators
     const listData = useMemo<ListItem[]>(() => {
         const result: ListItem[] = [];
         let lastDateKey = '';
 
-        news.forEach((article) => {
+        // For inverted list, we want the "latest" at the bottom.
+        // The `news` array is sorted by DESC (latest first).
+        // FlatList inverted renders index 0 at the BOTTOM. 
+        // So passing `news` directly to inverted list will put the LATEST item at the BOTTOM. Correct.
+        // However, we need to insert Date Headers.
+        // In an inverted list, headers appear "above" the items they precede in the source array?
+        // No, visual top is end of list. 
+        // Let's iterate normally through the sorted (DESC) array.
+        // Today, Yesterday, etc.
+        // [Latest Post (Today), ..., Oldest Post (Last Week)]
+        // Rendered Inverted: Oldest ... Latest.
+
+        // Date headers need to be inserted.
+        // If we have [Post A (Today), Post B (Today), Post C (Yesterday)]
+        // Inverted Rendering (Visual Bottom to Top):
+        // Post A
+        // Post B
+        // Date Header (Today)
+        // Post C
+        // Date Header (Yesterday)
+
+        // So we iterate through `news` and when date changes, we insert a header AFTER the group?
+        // Actually, let's keep it simple.
+
+        const sortedNews = [...news]; // Latest first
+
+        for (let i = 0; i < sortedNews.length; i++) {
+            const article = sortedNews[i];
             const dateKey = getDateKey(article.created_at);
-            if (dateKey !== lastDateKey) {
-                result.push({
-                    type: 'date',
-                    label: formatDateLabel(article.created_at),
-                    key: `date-${dateKey}`,
-                });
-                lastDateKey = dateKey;
-            }
+
             result.push({
                 type: 'article',
                 article,
                 key: article.id,
             });
-        });
+
+            // Check if next item has different date, or if this is the last item
+            const nextArticle = sortedNews[i + 1];
+            const nextDateKey = nextArticle ? getDateKey(nextArticle.created_at) : '';
+
+            if (dateKey !== nextDateKey) {
+                result.push({
+                    type: 'date',
+                    label: formatDateLabel(article.created_at),
+                    key: `date-${dateKey}`,
+                });
+            }
+        }
 
         return result;
     }, [news]);
@@ -433,57 +372,113 @@ export const NewsScreen = () => {
         if (item.type === 'date') {
             return <DateSeparator label={item.label} />;
         }
+
+        const reactionData = reactionSummary[item.article.id];
+        const reactionContent = (
+            <View style={styles.bubbleReactions}>
+                {REACTIONS.filter((r) => (reactionData?.counts?.[r.key] || 0) > 0).map((r) => (
+                    <Text key={r.key} style={styles.reactionEmojiSmall}>{r.emoji} <Text style={styles.reactionCountText}>{reactionData?.counts?.[r.key]}</Text></Text>
+                ))}
+            </View>
+        );
+
+        const isSelected = selectedItems.has(item.article.id);
+
         return (
-            <NewsCard
-                article={item.article}
-                onPress={() => {
-                    if (lastLongPressId.current === item.article.id) {
-                        lastLongPressId.current = null;
-                        return;
-                    }
-                    handleOpenDetail(item.article);
-                }}
-                onLongPress={
-                    isAdmin
-                        ? () => {
-                            markLongPress(item.article.id);
-                            handleDelete(item.article.id);
-                        }
-                        : canReact
-                            ? () => {
-                                markLongPress(item.article.id);
-                                openReactionPicker(item.article.id);
-                            }
-                            : undefined
-                }
-                reactionSummary={reactionSummary[item.article.id]}
-                onReact={(reaction) => handleReact(item.article.id, reaction)}
-                onOpenPicker={() => openReactionPicker(item.article.id)}
-                canReact={canReact}
-                viewCount={viewSummary[item.article.id]?.count || 0}
+            <MessageBubble
+                content={item.article.content || ''}
+                image_url={item.article.image_url}
+                link_url={item.article.link_url}
+                created_at={item.article.created_at}
+                author_name={item.article.author_name || 'Admin'}
+                isAdmin={true} // All news are admin posts
                 showViewCount={showViewCount}
+                viewCount={viewSummary[item.article.id]?.count || 0}
+                reactions={reactionContent}
+                selected={isSelected}
+                onLongPress={() => toggleSelection(item.article.id)}
+                onPress={() => handleOpenDetail(item.article)}
             />
         );
     };
 
+    const handleForward = async () => {
+        const selectedArticles = news.filter((item) => selectedItems.has(item.id));
+
+        // For a single item with an image, share the image file + text
+        if (selectedArticles.length === 1 && selectedArticles[0].image_url) {
+            const article = selectedArticles[0];
+            try {
+                const localFile = `${cacheDirectory}share_${article.id}.jpg`;
+                const { uri } = await downloadAsync(article.image_url, localFile);
+
+                if (await Sharing.isAvailableAsync()) {
+                    // Copy caption to clipboard so user can paste it after sharing the image
+                    const captionParts = [article.content, article.link_url].filter(Boolean);
+                    if (captionParts.length > 0) {
+                        await Clipboard.setStringAsync(captionParts.join('\n'));
+                    }
+                    await Sharing.shareAsync(uri, {
+                        dialogTitle: article.content?.slice(0, 60) || 'Share News',
+                        mimeType: 'image/jpeg',
+                        UTI: 'public.jpeg',
+                    });
+                    if (captionParts.length > 0) {
+                        Alert.alert('Tip', 'Caption copied to clipboard — paste it in your message.');
+                    }
+                } else {
+                    const parts = [article.content, article.image_url, article.link_url].filter(Boolean);
+                    await Share.share({ message: parts.join('\n\n'), title: 'Share News' });
+                }
+                clearSelection();
+                return;
+            } catch (error: any) {
+                Alert.alert('Image share failed', error?.message || String(error));
+            }
+        }
+
+        // Text-only share (multiple items or no image)
+        const textToShare = selectedArticles.map((item) => {
+            const parts: string[] = [];
+            if (item.content) parts.push(item.content);
+            if (item.image_url) parts.push(item.image_url);
+            if (item.link_url) parts.push(item.link_url);
+            return parts.join('\n');
+        }).join('\n\n----------------\n\n');
+
+        try {
+            await Share.share({ message: textToShare, title: 'Share News' });
+            clearSelection();
+        } catch (error) {
+            Alert.alert('Error', 'Failed to share content.');
+        }
+    };
+
     return (
         <View style={styles.container}>
+            <View style={styles.wallpaper} />
+            {selectedItems.size > 0 && (
+                <SelectionHeader
+                    selectedCount={selectedItems.size}
+                    onClearSelection={clearSelection}
+                    onDelete={handleDelete}
+                    onCopy={handleCopy}
+                    onForward={handleForward}
+                />
+            )}
             <FlatList
                 data={listData}
                 keyExtractor={(item) => item.key}
                 renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, { paddingTop: insets.bottom + 80 }]}
+                inverted
+                showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
                         tintColor={theme.colors.primary}
                     />
-                }
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>No news articles yet</Text>
-                    </View>
                 }
             />
 
@@ -525,176 +520,49 @@ export const NewsScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#E8E8E8',
+        backgroundColor: '#EFE7DE', // WhatsApp-like background
+    },
+    wallpaper: {
+        ...StyleSheet.absoluteFillObject,
+        opacity: 0.06,
+        backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', // Placeholder pattern if web, won't work in RN native directly without ImageBackground but good enough for now
+        backgroundColor: '#E5DDD5',
     },
     listContent: {
-        padding: 10,
-        paddingBottom: 100,
+        paddingVertical: 10,
+        paddingHorizontal: 6,
     },
-    // Date separator styles
     dateSeparatorContainer: {
-        flexDirection: 'row',
         alignItems: 'center',
-        marginVertical: 16,
-        paddingHorizontal: 20,
-    },
-    dateSeparatorLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: '#D0D0D0',
+        marginVertical: 8,
+        marginBottom: 12,
     },
     dateSeparatorBadge: {
-        backgroundColor: '#D9E8EC',
-        paddingHorizontal: 12,
+        backgroundColor: '#E1F2FB',
+        paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,
-        marginHorizontal: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
     },
     dateSeparatorText: {
         fontSize: 12,
+        color: '#555',
         fontWeight: '500',
-        color: '#4A90A4',
     },
-    // Card styles
-    card: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 8,
-        marginBottom: 12,
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-    },
-    imageContainer: {
-        position: 'relative',
-    },
-    heroImage: {
-        width: '100%',
-        height: 200,
-    },
-    playOverlay: {
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: [{ translateX: -25 }, { translateY: -25 }],
-        width: 50,
-        height: 50,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        borderRadius: 25,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    playIcon: {
-        color: '#FFF',
-        fontSize: 20,
-        marginLeft: 4,
-    },
-    contentContainer: {
-        padding: 12,
-    },
-    headline: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#000',
-        marginBottom: 8,
-    },
-    contentText: {
-        fontSize: 14,
-        color: '#303030',
-        lineHeight: 20,
-    },
-    linkContainer: {
-        marginTop: 12,
-    },
-    linkLabel: {
-        fontSize: 14,
-        color: '#303030',
-    },
-    linkText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#303030',
-    },
-    linkUrl: {
-        fontSize: 14,
-        color: '#4A90A4',
-        textDecorationLine: 'underline',
-    },
-    reactionRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        flexWrap: 'wrap',
-        marginTop: 12,
-        marginBottom: 4,
-    },
-    reactionBar: {
+    bubbleReactions: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'flex-end',
+        gap: 4,
     },
-    reactionChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 14,
-        backgroundColor: theme.colors.background,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        marginRight: 6,
-        marginBottom: 6,
-    },
-    reactionChipActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
-    },
-    reactionChipDisabled: {
-        opacity: 0.6,
-    },
-    reactionEmoji: {
-        fontSize: 14,
-    },
-    reactionCount: {
-        marginLeft: 4,
+    reactionEmojiSmall: {
         fontSize: 12,
-        color: theme.colors.textSecondary,
-        fontWeight: '600',
     },
-    reactionCountActive: {
-        color: '#FFFFFF',
-    },
-    addReactionChip: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 14,
-        backgroundColor: theme.colors.surface,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        marginRight: 6,
-        marginBottom: 6,
-    },
-    addReactionText: {
-        fontSize: 14,
-        color: theme.colors.textSecondary,
-        fontWeight: '600',
-    },
-    viewCountChip: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 14,
-        backgroundColor: theme.colors.surface,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        marginLeft: 6,
-        marginBottom: 6,
-    },
-    viewCountText: {
-        fontSize: 12,
-        color: theme.colors.textSecondary,
-        fontWeight: '600',
+    reactionCountText: {
+        fontSize: 10,
+        color: '#777',
     },
     reactionPickerOverlay: {
         flex: 1,
@@ -723,21 +591,5 @@ const styles = StyleSheet.create({
     },
     reactionPickerEmoji: {
         fontSize: 24,
-    },
-    timestamp: {
-        fontSize: 11,
-        color: '#8696A0',
-        textAlign: 'right',
-        marginTop: 8,
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 40,
-    },
-    emptyText: {
-        color: '#8696A0',
-        fontSize: 16,
     },
 });

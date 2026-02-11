@@ -77,7 +77,7 @@ export const HomeScreen = () => {
     }, [canNotify, user]);
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.logoRow}>
@@ -213,10 +213,14 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingVertical: 8, // Reduced from 12 for compact feel
         backgroundColor: theme.colors.header,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.border,
+        // Elevation for Android to separate from content if white
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
     },
     headerTitle: {
         fontSize: 18,
@@ -237,19 +241,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     bellButton: {
-        paddingHorizontal: 8,
+        paddingHorizontal: 6,
         paddingVertical: 6,
-        backgroundColor: theme.colors.surface,
-        borderRadius: 6,
-        marginRight: 8,
+        backgroundColor: 'transparent',
+        borderRadius: 20,
+        marginRight: 4,
     },
     bellIcon: {
-        fontSize: 16,
+        fontSize: 20,
     },
     badge: {
         position: 'absolute',
-        top: -6,
-        right: -6,
+        top: 0,
+        right: 0,
         minWidth: 18,
         height: 18,
         borderRadius: 9,

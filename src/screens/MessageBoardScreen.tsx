@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert, Platform, Pressable, Modal, TouchableWithoutFeedback } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Platform, Pressable, Modal, TouchableWithoutFeedback, Share, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { announcementService } from '../services/announcementService';
 import { reactionService } from '../services/reactionService';
@@ -7,8 +7,11 @@ import { postViewsService } from '../services/postViewsService';
 import { authService } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { Announcement, ReactionType } from '../types';
-import { FormattedText } from '../components/FormattedText';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
+import { MessageBubble } from '../components/MessageBubble';
+import { SelectionHeader } from '../components/SelectionHeader';
+import * as Clipboard from 'expo-clipboard';
 
 const REACTIONS: { key: ReactionType; emoji: string }[] = [
     { key: 'like', emoji: '👍' },
@@ -37,13 +40,19 @@ interface Props {
 
 export const MessageBoardScreen = ({ embedded = false }: Props) => {
     const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
     const { user, logout } = useAuth();
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [reactionSummary, setReactionSummary] = useState<Record<string, ReactionSummary>>({});
     const [viewSummary, setViewSummary] = useState<Record<string, ViewSummary>>({});
     const [reactionPickerTargetId, setReactionPickerTargetId] = useState<string | null>(null);
-    const lastLongPressId = useRef<string | null>(null);
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+    const isAdmin = authService.isAdmin(user);
+    const canReact = !!user && !isAdmin;
+    const canTrackView = !!user && !isAdmin;
+    const showViewCount = isAdmin;
 
     useEffect(() => {
         loadAnnouncements();
@@ -60,31 +69,6 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         setRefreshing(true);
         await loadAnnouncements();
         setRefreshing(false);
-    };
-
-    const isAdmin = authService.isAdmin(user);
-    const canReact = !!user && !isAdmin;
-    const canTrackView = !!user && !isAdmin;
-    const showViewCount = isAdmin;
-
-    const markLongPress = (id: string) => {
-        lastLongPressId.current = id;
-        setTimeout(() => {
-            if (lastLongPressId.current === id) {
-                lastLongPressId.current = null;
-            }
-        }, 400);
-    };
-
-    const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
     };
 
     const loadReactions = async (items: Announcement[]) => {
@@ -137,20 +121,6 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         }
     };
 
-    const updateViewSummary = (targetId: string) => {
-        setViewSummary((prev) => {
-            const existing = prev[targetId] || { count: 0, hasViewed: false };
-            if (existing.hasViewed) return prev;
-            return {
-                ...prev,
-                [targetId]: {
-                    count: existing.count + 1,
-                    hasViewed: true,
-                },
-            };
-        });
-    };
-
     const updateReactionSummary = (targetId: string, nextReaction?: ReactionType, prevReaction?: ReactionType) => {
         setReactionSummary((prev) => {
             const existing = prev[targetId] || { counts: emptyReactionCounts(), userReaction: undefined };
@@ -187,28 +157,12 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
             await reactionService.add('announcement', targetId, user.id, reaction);
             updateReactionSummary(targetId, reaction, currentReaction);
         } catch (error) {
-            Alert.alert('Error', 'Failed to update reaction. Please try again.');
+            console.warn('Reaction error', error);
         }
-    };
-
-    const handleOpenDetail = async (announcement: Announcement) => {
-        if (canTrackView && user && !viewSummary[announcement.id]?.hasViewed) {
-            try {
-                await postViewsService.add('announcement', announcement.id, user.id);
-                updateViewSummary(announcement.id);
-            } catch (error: any) {
-                if (error?.code !== '23505') {
-                    console.warn('Failed to add view', error);
-                }
-            }
-        }
-
-        const currentCount = viewSummary[announcement.id]?.count || 0;
-        const nextCount = canTrackView && !viewSummary[announcement.id]?.hasViewed ? currentCount + 1 : currentCount;
-        navigation.navigate('AnnouncementDetail', { announcement, viewCount: nextCount });
     };
 
     const openReactionPicker = (targetId: string) => {
+        if (selectedItems.size > 0) return;
         if (!canReact) return;
         setReactionPickerTargetId(targetId);
     };
@@ -217,125 +171,113 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         setReactionPickerTargetId(null);
     };
 
-    const confirmDelete = (onConfirm: () => void) => {
-        if (Platform.OS === 'web') {
-            const confirmFn = (globalThis as any)?.confirm as ((message: string) => boolean) | undefined;
-            if (confirmFn && confirmFn('Delete this announcement?')) onConfirm();
-            return;
-        }
-        Alert.alert('Delete Announcement', 'Delete this announcement?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: onConfirm },
-        ]);
-    };
-
-    const handleDelete = (id: string) => {
-        confirmDelete(async () => {
-            try {
-                await announcementService.delete(id);
-                setAnnouncements((prev) => prev.filter((item) => item.id !== id));
-                setReactionSummary((prev) => {
-                    const next = { ...prev };
-                    delete next[id];
-                    return next;
-                });
-                setViewSummary((prev) => {
-                    const next = { ...prev };
-                    delete next[id];
-                    return next;
-                });
-            } catch (error) {
-                Alert.alert('Error', 'Failed to delete. Please try again.');
+    const toggleSelection = (id: string) => {
+        setSelectedItems((prev) => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
             }
+            return newSet;
         });
     };
 
-    const renderItem = ({ item }: { item: Announcement }) => (
-        <Pressable
-            style={styles.card}
-            onPress={() => {
-                if (lastLongPressId.current === item.id) {
-                    lastLongPressId.current = null;
-                    return;
-                }
-                handleOpenDetail(item);
-            }}
-            onLongPress={
-                isAdmin
-                    ? () => {
-                        markLongPress(item.id);
-                        handleDelete(item.id);
-                    }
-                    : canReact
-                        ? () => {
-                            markLongPress(item.id);
-                            openReactionPicker(item.id);
+    const clearSelection = () => {
+        setSelectedItems(new Set());
+    };
+
+    const handleCopy = async () => {
+        const selectedAnnouncements = announcements.filter((item) => selectedItems.has(item.id));
+        const textToCopy = selectedAnnouncements.map((item) => item.content).join('\n\n');
+        await Clipboard.setStringAsync(textToCopy);
+        Alert.alert('Copied', 'Announcements copied to clipboard');
+        clearSelection();
+    };
+
+    const handleForward = async () => {
+        const selectedAnnouncements = announcements.filter((item) => selectedItems.has(item.id));
+        const textToShare = selectedAnnouncements
+            .map((item) => `${item.title}\n\n${item.content}`)
+            .join('\n\n----------------\n\n');
+
+        try {
+            await Share.share({
+                message: textToShare,
+                title: 'Share Announcements'
+            });
+            clearSelection();
+        } catch (error) {
+            Alert.alert('Error', 'Failed to share content.');
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!isAdmin) {
+            Alert.alert('Permission Denied', 'Only admins can delete announcements.');
+            return;
+        }
+
+        Alert.alert(
+            'Delete Announcements',
+            `Are you sure you want to delete ${selectedItems.size} announcement(s)?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        // Optimistic update
+                        const idsToDelete = Array.from(selectedItems);
+                        setAnnouncements((prev) => prev.filter((item) => !selectedItems.has(item.id)));
+                        clearSelection();
+
+                        // Actual delete calls
+                        for (const id of idsToDelete) {
+                            await announcementService.delete(id);
                         }
-                        : undefined
-            }
-            delayLongPress={350}
-            disabled={!isAdmin && !canReact}
-        >
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <FormattedText text={item.content} style={styles.cardContent} />
-            <View style={styles.reactionRow}>
-                <View style={styles.reactionBar}>
-                {REACTIONS.filter((reaction) => (reactionSummary[item.id]?.counts?.[reaction.key] || 0) > 0).map((reaction) => {
-                    const summary = reactionSummary[item.id];
-                    const count = summary?.counts?.[reaction.key] || 0;
-                    const isActive = summary?.userReaction === reaction.key;
-                    return (
-                            <Pressable
-                                key={reaction.key}
-                                style={[
-                                    styles.reactionChip,
-                                    isActive && styles.reactionChipActive,
-                                    !canReact && styles.reactionChipDisabled,
-                                ]}
-                                onPress={(e) => {
-                                    e.stopPropagation();
-                                    handleReact(item.id, reaction.key);
-                                }}
-                                disabled={!canReact}
-                            >
-                            <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
-                            <Text style={[styles.reactionCount, isActive && styles.reactionCountActive]}>
-                                {count}
-                            </Text>
-                        </Pressable>
-                    );
-                })}
-                    {canReact && (
-                        <Pressable
-                            style={styles.addReactionChip}
-                            onPress={(e) => {
-                                e.stopPropagation();
-                                openReactionPicker(item.id);
-                            }}
-                        >
-                            <Text style={styles.addReactionText}>+</Text>
-                        </Pressable>
-                    )}
-                </View>
-                {showViewCount && (
-                    <View style={styles.viewCountChip}>
-                        <Text style={styles.viewCountText}>👁 {viewSummary[item.id]?.count || 0}</Text>
-                    </View>
-                )}
-            </View>
-            <View style={styles.cardFooter}>
-                <Text style={styles.cardAuthor}>📢 {item.author_name}</Text>
-                <Text style={styles.cardDate}>{formatDate(item.created_at)}</Text>
-            </View>
-        </Pressable>
-    );
+                    }
+                }
+            ]
+        );
+    };
 
+    const renderItem = ({ item }: { item: Announcement }) => {
+        const reactionData = reactionSummary[item.id];
+        const reactionContent = (
+            <View style={styles.bubbleReactions}>
+                {REACTIONS.filter((r) => (reactionData?.counts?.[r.key] || 0) > 0).map((r) => (
+                    <Text key={r.key} style={styles.reactionEmojiSmall}>{r.emoji} <Text style={styles.reactionCountText}>{reactionData?.counts?.[r.key]}</Text></Text>
+                ))}
+            </View>
+        );
 
+        const isSelected = selectedItems.has(item.id);
+
+        return (
+            <MessageBubble
+                content={`**${item.title}**\n\n${item.content}`}
+                created_at={item.created_at}
+                author_name={'Announcement'} // Or item.author_name if available
+                isAdmin={true}
+                showViewCount={showViewCount}
+                viewCount={viewSummary[item.id]?.count || 0}
+                reactions={reactionContent}
+                selected={isSelected}
+                onLongPress={() => toggleSelection(item.id)}
+                onPress={() => {
+                    if (selectedItems.size > 0) {
+                        toggleSelection(item.id);
+                    }
+                }}
+            />
+        );
+    };
 
     return (
         <View style={styles.container}>
-            {/* Header - only show if not embedded */}
-            {!embedded && (
+            {/* Header - only show if not embedded (e.g. standalone screen) */}
+            {!embedded && selectedItems.size === 0 && (
                 <View style={styles.header}>
                     <View>
                         <Text style={styles.headerTitle}>CBN Announcements</Text>
@@ -347,7 +289,17 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                 </View>
             )}
 
-            {/* Admin Button - only show if not embedded */}
+            {selectedItems.size > 0 && (
+                <SelectionHeader
+                    selectedCount={selectedItems.size}
+                    onClearSelection={clearSelection}
+                    onDelete={handleDelete}
+                    onCopy={handleCopy}
+                    onForward={handleForward}
+                />
+            )}
+
+            {/* Admin Button */}
             {!embedded && isAdmin && (
                 <TouchableOpacity
                     style={styles.adminButton}
@@ -357,12 +309,18 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                 </TouchableOpacity>
             )}
 
-            {/* Announcements List */}
             <FlatList
                 data={announcements}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.list}
+                contentContainerStyle={[
+                    styles.list,
+                    {
+                        paddingTop: insets.bottom + 10,
+                        paddingBottom: insets.top + 10
+                    }
+                ]}
+                inverted
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
                 }
@@ -409,7 +367,7 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: theme.colors.background,
+        backgroundColor: '#EFE7DE', // Same background
     },
     header: {
         flexDirection: 'row',
@@ -455,100 +413,26 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     list: {
-        padding: 16,
-        paddingTop: 8,
-        paddingBottom: 100, // Extra space for Android nav + FAB
+        paddingVertical: 10,
+        paddingHorizontal: 6,
     },
-    card: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
+    emptyText: {
+        textAlign: 'center',
+        color: theme.colors.textSecondary,
+        marginTop: 40,
+        fontSize: 16,
     },
-    cardTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: theme.colors.text,
-        marginBottom: 8,
-    },
-    cardContent: {
-        fontSize: 15,
-        color: theme.colors.text,
-        lineHeight: 22,
-        marginBottom: 12,
-    },
-    reactionRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        flexWrap: 'wrap',
-        marginBottom: 8,
-    },
-    reactionBar: {
+    bubbleReactions: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'flex-end',
+        gap: 4,
     },
-    reactionChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 14,
-        backgroundColor: theme.colors.background,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        marginRight: 6,
-        marginBottom: 6,
-    },
-    reactionChipActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
-    },
-    reactionChipDisabled: {
-        opacity: 0.6,
-    },
-    reactionEmoji: {
-        fontSize: 14,
-    },
-    reactionCount: {
-        marginLeft: 4,
+    reactionEmojiSmall: {
         fontSize: 12,
-        color: theme.colors.textSecondary,
-        fontWeight: '600',
     },
-    reactionCountActive: {
-        color: '#FFFFFF',
-    },
-    addReactionChip: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 14,
-        backgroundColor: theme.colors.surface,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        marginRight: 6,
-        marginBottom: 6,
-    },
-    addReactionText: {
-        fontSize: 14,
-        color: theme.colors.textSecondary,
-        fontWeight: '600',
-    },
-    viewCountChip: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 14,
-        backgroundColor: theme.colors.surface,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        marginLeft: 6,
-        marginBottom: 6,
-    },
-    viewCountText: {
-        fontSize: 12,
-        color: theme.colors.textSecondary,
-        fontWeight: '600',
+    reactionCountText: {
+        fontSize: 10,
+        color: '#777',
     },
     reactionPickerOverlay: {
         flex: 1,
@@ -578,26 +462,4 @@ const styles = StyleSheet.create({
     reactionPickerEmoji: {
         fontSize: 24,
     },
-    cardFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.border,
-        paddingTop: 10,
-    },
-    cardAuthor: {
-        fontSize: 13,
-        color: theme.colors.primary,
-    },
-    cardDate: {
-        fontSize: 12,
-        color: theme.colors.textSecondary,
-    },
-    emptyText: {
-        textAlign: 'center',
-        color: theme.colors.textSecondary,
-        marginTop: 40,
-        fontSize: 16,
-    }
 });
