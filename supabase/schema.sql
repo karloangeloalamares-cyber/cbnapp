@@ -151,6 +151,30 @@ create policy "Users can delete own push tokens." on public.cbn_app_push_tokens 
   auth.uid() = user_id
 );
 
+-- Push token upsert function (bypasses RLS for device reassignment)
+create or replace function public.upsert_push_token(
+  p_token text,
+  p_platform text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  insert into cbn_app_push_tokens (user_id, token, platform, updated_at)
+  values (auth.uid(), p_token, p_platform, now())
+  on conflict (token) do update set
+    user_id = auth.uid(),
+    platform = p_platform,
+    updated_at = now();
+end;
+$$;
+
 -- 6. NOTIFICATIONS (In-App)
 create table if not exists public.cbn_app_notifications (
   id uuid default uuid_generate_v4() primary key,

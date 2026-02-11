@@ -13,6 +13,8 @@ export const SignUpScreen = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const showAlert = (title: string, msg: string, onOk?: () => void) => {
         if (Platform.OS === 'web') {
@@ -24,13 +26,20 @@ export const SignUpScreen = () => {
         Alert.alert(title, msg, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
     };
 
+    const hasMinLength = password.length >= 8;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSymbol = /[^A-Za-z0-9]/.test(password);
+    const isPasswordValid = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSymbol;
+
     const handleSignUp = async () => {
         if (!displayName.trim() || !email.trim() || !password.trim()) {
             showAlert('Missing info', 'Please fill all fields.');
             return;
         }
-        if (password.length < 6) {
-            showAlert('Weak password', 'Password must be at least 6 characters.');
+        if (!isPasswordValid) {
+            showAlert('Weak password', 'Password must meet all requirements listed below.');
             return;
         }
         if (password !== confirmPassword) {
@@ -38,12 +47,7 @@ export const SignUpScreen = () => {
             return;
         }
 
-        const result = await signUp(email.trim(), password, displayName.trim());
-        if (result.success && result.needsEmailConfirmation) {
-            showAlert('Check your email', 'We sent a confirmation link. Please verify, then log in.', () => {
-                navigation.goBack();
-            });
-        }
+        await signUp(email.trim(), password, displayName.trim());
     };
 
     return (
@@ -89,23 +93,53 @@ export const SignUpScreen = () => {
                     autoCapitalize="none"
                 />
 
-                <TextInput
-                    style={styles.input}
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="Password"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    secureTextEntry
-                />
+                <View style={styles.passwordContainer}>
+                    <TextInput
+                        style={styles.passwordInput}
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder="Password"
+                        placeholderTextColor={theme.colors.textSecondary}
+                        secureTextEntry={!showPassword}
+                    />
+                    <Pressable style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
+                        <Text style={styles.eyeText}>{showPassword ? 'Hide' : 'Show'}</Text>
+                    </Pressable>
+                </View>
 
-                <TextInput
-                    style={styles.input}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder="Confirm password"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    secureTextEntry
-                />
+                {password.length > 0 && (
+                    <View style={styles.requirementsBox}>
+                        <Text style={[styles.reqItem, hasMinLength && styles.reqMet]}>
+                            {hasMinLength ? '\u2713' : '\u2022'} At least 8 characters
+                        </Text>
+                        <Text style={[styles.reqItem, hasUppercase && styles.reqMet]}>
+                            {hasUppercase ? '\u2713' : '\u2022'} One uppercase letter (A-Z)
+                        </Text>
+                        <Text style={[styles.reqItem, hasLowercase && styles.reqMet]}>
+                            {hasLowercase ? '\u2713' : '\u2022'} One lowercase letter (a-z)
+                        </Text>
+                        <Text style={[styles.reqItem, hasNumber && styles.reqMet]}>
+                            {hasNumber ? '\u2713' : '\u2022'} One number (0-9)
+                        </Text>
+                        <Text style={[styles.reqItem, hasSymbol && styles.reqMet]}>
+                            {hasSymbol ? '\u2713' : '\u2022'} One symbol (!@#$...)
+                        </Text>
+                    </View>
+                )}
+
+                <View style={styles.passwordContainer}>
+                    <TextInput
+                        style={styles.passwordInput}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        placeholder="Confirm password"
+                        placeholderTextColor={theme.colors.textSecondary}
+                        secureTextEntry={!showConfirmPassword}
+                    />
+                    <Pressable style={styles.eyeButton} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                        <Text style={styles.eyeText}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
+                    </Pressable>
+                </View>
 
                 <TouchableOpacity
                     style={[styles.button, loading && styles.buttonDisabled]}
@@ -175,6 +209,46 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         borderWidth: 1,
         borderColor: theme.colors.border,
+    },
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        marginBottom: 16,
+    },
+    passwordInput: {
+        flex: 1,
+        padding: 16,
+        fontSize: 16,
+        color: theme.colors.text,
+    },
+    eyeButton: {
+        paddingHorizontal: 14,
+        paddingVertical: 16,
+    },
+    eyeText: {
+        fontSize: 14,
+        color: theme.colors.primary,
+        fontWeight: '600',
+    },
+    requirementsBox: {
+        backgroundColor: theme.colors.surface,
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    reqItem: {
+        fontSize: 13,
+        color: theme.colors.textSecondary,
+        marginBottom: 4,
+    },
+    reqMet: {
+        color: '#2E7D32',
     },
     button: {
         backgroundColor: theme.colors.primary,

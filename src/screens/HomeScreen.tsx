@@ -104,8 +104,16 @@ export const HomeScreen = () => {
                             )}
                         </Pressable>
                     )}
-                    <Pressable onPress={logout} style={styles.logoutButton}>
-                        <Text style={styles.logoutText}>Logout</Text>
+                    <Pressable
+                        style={styles.profileButton}
+                        onPress={() => navigation.navigate('Profile')}
+                    >
+                        <Image
+                            source={{
+                                uri: user?.avatar_url || 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'
+                            }}
+                            style={styles.avatarImage}
+                        />
                     </Pressable>
                 </View>
             </View>
@@ -255,15 +263,18 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontWeight: '700',
     },
-    logoutButton: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        backgroundColor: theme.colors.surface,
-        borderRadius: 6,
+    profileButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        marginRight: 0,
     },
-    logoutText: {
-        color: theme.colors.textSecondary,
-        fontSize: 14,
+    avatarImage: {
+        width: '100%',
+        height: '100%',
     },
     tabBar: {
         flexDirection: 'row',

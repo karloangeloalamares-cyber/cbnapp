@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, Pressable, RefreshControl, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { notificationService } from '../services/notificationService';
 import { newsService } from '../services/newsService';
@@ -31,6 +32,7 @@ const mapNotification = (item: any): AppNotification => ({
 });
 
 export const NotificationsScreen = () => {
+    const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const { user } = useAuth();
     const isAdmin = authService.isAdmin(user);
@@ -174,7 +176,7 @@ export const NotificationsScreen = () => {
     }
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
                 <Pressable onPress={() => navigation.goBack()}>
                     <Text style={styles.backText}>&lt; Back</Text>
@@ -187,7 +189,7 @@ export const NotificationsScreen = () => {
                 data={notifications}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
-                contentContainerStyle={styles.list}
+                contentContainerStyle={[styles.list, { paddingBottom: Math.max(insets.bottom, 40) }]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
                 ListEmptyComponent={<Text style={styles.emptyText}>No notifications yet.</Text>}
             />

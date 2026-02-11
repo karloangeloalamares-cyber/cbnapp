@@ -11,6 +11,7 @@ export const LoginScreen = () => {
     const { login, loading } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
@@ -48,14 +49,23 @@ export const LoginScreen = () => {
                     autoCapitalize="none"
                 />
 
-                <TextInput
-                    style={styles.input}
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="Enter your password"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    secureTextEntry
-                />
+                <View style={styles.passwordContainer}>
+                    <TextInput
+                        style={styles.passwordInput}
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder="Enter your password"
+                        placeholderTextColor={theme.colors.textSecondary}
+                        secureTextEntry={!showPassword}
+                    />
+                    <Pressable style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
+                        <Text style={styles.eyeText}>{showPassword ? 'Hide' : 'Show'}</Text>
+                    </Pressable>
+                </View>
+
+                <Pressable onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotPasswordButton}>
+                    <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </Pressable>
 
                 <TouchableOpacity
                     style={[styles.button, loading && styles.buttonDisabled]}
@@ -66,10 +76,6 @@ export const LoginScreen = () => {
                         {loading ? 'Logging in...' : 'Log In'}
                     </Text>
                 </TouchableOpacity>
-
-                <Text style={styles.hint}>
-                    Try: admin@cbn.com (admin) or alice@example.com (user)
-                </Text>
 
                 <Pressable onPress={() => navigation.navigate('SignUp')}>
                     <Text style={styles.linkText}>Create an account</Text>
@@ -118,6 +124,30 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.border,
     },
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        marginBottom: 16,
+    },
+    passwordInput: {
+        flex: 1,
+        padding: 16,
+        fontSize: 16,
+        color: theme.colors.text,
+    },
+    eyeButton: {
+        paddingHorizontal: 14,
+        paddingVertical: 16,
+    },
+    eyeText: {
+        fontSize: 14,
+        color: theme.colors.primary,
+        fontWeight: '600',
+    },
     button: {
         backgroundColor: theme.colors.primary,
         borderRadius: 12,
@@ -132,11 +162,14 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '600',
     },
-    hint: {
-        marginTop: 24,
-        fontSize: 13,
-        color: theme.colors.textSecondary,
-        textAlign: 'center',
+    forgotPasswordButton: {
+        alignSelf: 'flex-end',
+        marginBottom: 24,
+    },
+    forgotPasswordText: {
+        fontSize: 14,
+        color: theme.colors.primary,
+        fontWeight: '500',
     },
     linkText: {
         marginTop: 16,

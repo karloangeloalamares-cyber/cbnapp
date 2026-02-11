@@ -5,6 +5,7 @@ export interface User {
   email: string;
   display_name: string;
   role: Role;
+  avatar_url?: string;
 }
 
 export interface Announcement {

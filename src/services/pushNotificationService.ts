@@ -77,17 +77,10 @@ export const pushNotificationService = {
                 };
             }
 
-            const { error } = await supabase
-                .from('cbn_app_push_tokens')
-                .upsert(
-                    {
-                        user_id: userId,
-                        token,
-                        platform: Platform.OS,
-                        updated_at: new Date().toISOString(),
-                    },
-                    { onConflict: 'token' }
-                );
+            const { error } = await supabase.rpc('upsert_push_token', {
+                p_token: token,
+                p_platform: Platform.OS,
+            });
 
             if (error) {
                 return { token: null, error: `Failed to save push token: ${error.message}` };

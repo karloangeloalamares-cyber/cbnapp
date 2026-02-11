@@ -28,7 +28,8 @@ export const authService = {
                 id: profile.id,
                 email: profile.email,
                 display_name: profile.display_name || email.split('@')[0],
-                role: profile.role as 'admin' | 'user'
+                role: profile.role as 'admin' | 'user',
+                avatar_url: profile.avatar_url
             };
 
             return { user, error: null };
@@ -40,7 +41,7 @@ export const authService = {
         email: string,
         password: string,
         displayName: string
-    ): Promise<{ user: User | null; error: string | null; needsEmailConfirmation: boolean }> => {
+    ): Promise<{ user: User | null; error: string | null }> => {
         try {
             const { data, error } = await supabase.auth.signUp({
                 email,
@@ -52,13 +53,8 @@ export const authService = {
                 },
             });
 
-            if (error) return { user: null, error: error.message, needsEmailConfirmation: false };
-            if (!data.user) return { user: null, error: 'No user returned from sign up', needsEmailConfirmation: false };
-
-            const needsEmailConfirmation = !data.session;
-            if (needsEmailConfirmation) {
-                return { user: null, error: null, needsEmailConfirmation: true };
-            }
+            if (error) return { user: null, error: error.message };
+            if (!data.user || !data.session) return { user: null, error: 'Sign up failed. Please try again.' };
 
             const { data: profile, error: profileError } = await supabase
                 .from('cbn_app_profiles')
@@ -70,7 +66,8 @@ export const authService = {
                 id: profile.id,
                 email: profile.email,
                 display_name: profile.display_name || displayName || email.split('@')[0],
-                role: profile.role as 'admin' | 'user'
+                role: profile.role as 'admin' | 'user',
+                avatar_url: profile.avatar_url
             } : {
                 id: data.user.id,
                 email,
@@ -78,9 +75,9 @@ export const authService = {
                 role: 'user'
             };
 
-            return { user, error: null, needsEmailConfirmation: false };
+            return { user, error: null };
         } catch (e: any) {
-            return { user: null, error: e.message, needsEmailConfirmation: false };
+            return { user: null, error: e.message };
         }
     },
 

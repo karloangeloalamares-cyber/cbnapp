@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Alert, StatusBar } from 'react-native';
+import { Alert, StatusBar, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -7,11 +7,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { SignUpScreen } from './src/screens/SignUpScreen';
+import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AdminPostScreen } from './src/screens/AdminPostScreen';
 import { NewsDetailScreen } from './src/screens/NewsDetailScreen';
 import { AnnouncementDetailScreen } from './src/screens/AnnouncementDetailScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
 import { pushNotificationService } from './src/services/pushNotificationService';
 import { newsService } from './src/services/newsService';
 import { announcementService } from './src/services/announcementService';
@@ -23,7 +25,15 @@ const Stack = createStackNavigator();
 const navigationRef = createNavigationContainerRef<any>();
 
 const AppNavigator = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -31,10 +41,12 @@ const AppNavigator = () => {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="SignUp" component={SignUpScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </>
       ) : (
         <>
           <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen
             name="AdminPost"
             component={AdminPostScreen}
