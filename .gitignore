@@ -44,6 +44,7 @@ yarn-error.*
 
 # Firebase service account (secret)
 *-firebase-adminsdk-*.json
+google-services.json
 
 # Supabase local temp
 supabase/.temp/

@@ -31,6 +31,22 @@ export const newsService = {
             author_name: data.author_name || '',
         } as NewsArticle;
     },
+    getByIds: async (ids: string[]): Promise<NewsArticle[]> => {
+        if (ids.length === 0) return [];
+
+        const { data, error } = await supabase
+            .from('cbn_app_news')
+            .select('*')
+            .in('id', ids);
+
+        if (error) throw error;
+
+        return (data || []).map((item: any) => ({
+            ...item,
+            id: item.id.toString(),
+            author_name: item.author_name || '',
+        })) as NewsArticle[];
+    },
 
     create: async (
         headline: string,

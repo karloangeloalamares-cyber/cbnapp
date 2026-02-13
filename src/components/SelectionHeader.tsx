@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { theme } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface SelectionHeaderProps {
     selectedCount: number;
@@ -23,6 +23,7 @@ export const SelectionHeader = ({
     onStar,
 }: SelectionHeaderProps) => {
     const insets = useSafeAreaInsets();
+    const { theme } = useTheme();
 
     const handleAction = (actionName: string, action?: () => void) => {
         if (action) {
@@ -33,7 +34,7 @@ export const SelectionHeader = ({
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.primary }]}>
             <View style={styles.content}>
                 <View style={styles.leftSection}>
                     <Pressable onPress={onClearSelection} style={styles.iconButton}>
@@ -43,8 +44,8 @@ export const SelectionHeader = ({
                 </View>
 
                 <View style={styles.rightSection}>
-                    <Pressable onPress={() => handleAction('Reply', onReply)} style={styles.iconButton}>
-                        <Text style={styles.icon}>↩️</Text>
+                    <Pressable onPress={() => handleAction('Forward', onForward)} style={styles.iconButton}>
+                        <Text style={styles.icon}>↪️</Text>
                     </Pressable>
                     <Pressable onPress={() => handleAction('Star', onStar)} style={styles.iconButton}>
                         <Text style={styles.icon}>⭐</Text>
@@ -52,10 +53,6 @@ export const SelectionHeader = ({
                     <Pressable onPress={() => handleAction('Delete', onDelete)} style={styles.iconButton}>
                         <Text style={styles.icon}>🗑️</Text>
                     </Pressable>
-                    <Pressable onPress={() => handleAction('Forward', onForward)} style={styles.iconButton}>
-                        <Text style={styles.icon}>↪️</Text>
-                    </Pressable>
-                    {/* Additional menu dots could go here */}
                 </View>
             </View>
         </View>
@@ -64,7 +61,7 @@ export const SelectionHeader = ({
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#008069', // WhatsApp teal color
+        backgroundColor: '#20B65E', // Overridden dynamically with theme.colors.primary
         width: '100%',
         position: 'absolute',
         top: 0,

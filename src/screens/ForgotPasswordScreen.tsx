@@ -3,13 +3,15 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvo
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
-import { theme } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 export const ForgotPasswordScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
+    const { theme } = useTheme();
+    const styles = React.useMemo(() => createStyles(theme), [theme]);
 
     const showAlert = (title: string, msg: string, onOk?: () => void) => {
         if (Platform.OS === 'web') {
@@ -99,69 +101,75 @@ export const ForgotPasswordScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
-    },
-    backButton: {
-        position: 'absolute',
-        left: 16,
-        zIndex: 1,
-        paddingVertical: 6,
-        paddingHorizontal: 8,
-    },
-    backText: {
-        fontSize: 14,
-        color: theme.colors.primary,
-        fontWeight: '600',
-    },
-    content: {
-        flexGrow: 1,
-        justifyContent: 'center',
-        padding: 30,
-    },
-    logoImage: {
-        width: 100,
-        height: 60,
-        alignSelf: 'center',
-        marginBottom: 16,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: theme.colors.text,
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: theme.colors.textSecondary,
-        textAlign: 'center',
-        marginBottom: 32,
-    },
-    input: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        padding: 16,
-        fontSize: 16,
-        color: theme.colors.text,
-        marginBottom: 24,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    button: {
-        backgroundColor: theme.colors.primary,
-        borderRadius: 12,
-        padding: 16,
-        alignItems: 'center',
-    },
-    buttonDisabled: {
-        opacity: 0.6,
-    },
-    buttonText: {
-        color: '#FFFFFF',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-});
+const createStyles = (theme: any) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: theme.colors.background,
+        },
+        backButton: {
+            position: 'absolute',
+            left: 16,
+            zIndex: 1,
+            paddingVertical: 6,
+            paddingHorizontal: 8,
+        },
+        backText: {
+            fontSize: 14,
+            color: theme.colors.primary,
+            fontWeight: '600',
+            fontFamily: 'Inter',
+        },
+        content: {
+            flexGrow: 1,
+            justifyContent: 'center',
+            padding: 30,
+        },
+        logoImage: {
+            width: 100,
+            height: 60,
+            alignSelf: 'center',
+            marginBottom: 16,
+        },
+        title: {
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: theme.colors.text,
+            textAlign: 'center',
+            marginBottom: 8,
+            fontFamily: 'Inter',
+        },
+        subtitle: {
+            fontSize: 16,
+            color: theme.colors.textSecondary,
+            textAlign: 'center',
+            marginBottom: 32,
+            fontFamily: 'Inter',
+        },
+        input: {
+            backgroundColor: theme.colors.surface,
+            borderRadius: 12,
+            padding: 16,
+            fontSize: 16,
+            color: theme.colors.text,
+            marginBottom: 24,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            fontFamily: 'Inter',
+        },
+        button: {
+            backgroundColor: theme.colors.primary,
+            borderRadius: 12,
+            padding: 16,
+            alignItems: 'center',
+        },
+        buttonDisabled: {
+            opacity: 0.6,
+        },
+        buttonText: {
+            color: '#FFFFFF',
+            fontSize: 18,
+            fontWeight: '600',
+            fontFamily: 'Inter',
+        },
+    });

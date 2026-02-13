@@ -1,17 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Platform, Pressable, Modal, TouchableWithoutFeedback, Share, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+    View,
+    Text,
+    FlatList,
+    StyleSheet,
+    TouchableOpacity,
+    RefreshControl,
+    Platform,
+    Pressable,
+    Modal,
+    TouchableWithoutFeedback,
+    Share,
+    Alert,
+    KeyboardAvoidingView,
+    Keyboard
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { announcementService } from '../services/announcementService';
 import { reactionService } from '../services/reactionService';
 import { postViewsService } from '../services/postViewsService';
+import { savedItemsService } from '../services/savedItemsService';
 import { authService } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { Announcement, ReactionType } from '../types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { theme } from '../theme';
-import { MessageBubble } from '../components/MessageBubble';
+import { useTheme } from '../context/ThemeContext';
+import { MessageCard } from '../components/MessageCard';
 import { SelectionHeader } from '../components/SelectionHeader';
+import { FormattingHeader } from '../components/FormattingHeader';
+import { Composer } from '../components/Composer';
 import * as Clipboard from 'expo-clipboard';
+import { PostOptionsModal } from '../components/PostOptionsModal';
 
 const REACTIONS: { key: ReactionType; emoji: string }[] = [
     { key: 'like', emoji: '👍' },
@@ -42,17 +61,41 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { user, logout } = useAuth();
+    const { theme } = useTheme();
+    const themedStyles = useMemo(() => createStyles(theme), [theme]);
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [reactionSummary, setReactionSummary] = useState<Record<string, ReactionSummary>>({});
     const [viewSummary, setViewSummary] = useState<Record<string, ViewSummary>>({});
+    const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set());
     const [reactionPickerTargetId, setReactionPickerTargetId] = useState<string | null>(null);
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    const [longPressedItemId, setLongPressedItemId] = useState<string | null>(null);
 
     const isAdmin = authService.isAdmin(user);
-    const canReact = !!user && !isAdmin;
     const canTrackView = !!user && !isAdmin;
+    const canSave = !!user && !isAdmin;
     const showViewCount = isAdmin;
+
+    // Formatting state
+    const [isFormatting, setIsFormatting] = useState(false);
+    const composerRef = React.useRef<any>(null);
+
+    // Manual keyboard height tracking for Android (Expo Go doesn't support adjustResize)
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    useEffect(() => {
+        if (Platform.OS !== 'android') return;
+        const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+            setKeyboardHeight(e.endCoordinates.height);
+        });
+        const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+            setKeyboardHeight(0);
+        });
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     useEffect(() => {
         loadAnnouncements();
@@ -63,6 +106,7 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         setAnnouncements(data);
         await loadReactions(data);
         await loadViews(data);
+        await loadSavedItems(data);
     };
 
     const onRefresh = async () => {
@@ -121,6 +165,39 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         }
     };
 
+    const loadSavedItems = async (items: Announcement[]) => {
+        if (!canSave || !user) {
+            setSavedItemIds(new Set());
+            return;
+        }
+
+        try {
+            const saved = await savedItemsService.getForTargets(
+                user.id,
+                'announcement',
+                items.map((item) => item.id)
+            );
+            setSavedItemIds(new Set(saved.map((item) => item.target_id)));
+        } catch (error) {
+            console.warn('Failed to load saved announcements', error);
+        }
+    };
+
+    const updateViewSummary = (targetId: string) => {
+        setViewSummary((prev) => {
+            const existing = prev[targetId] || { count: 0, hasViewed: false };
+            if (existing.hasViewed) return prev;
+
+            return {
+                ...prev,
+                [targetId]: {
+                    count: existing.count + 1,
+                    hasViewed: true,
+                },
+            };
+        });
+    };
+
     const updateReactionSummary = (targetId: string, nextReaction?: ReactionType, prevReaction?: ReactionType) => {
         setReactionSummary((prev) => {
             const existing = prev[targetId] || { counts: emptyReactionCounts(), userReaction: undefined };
@@ -161,12 +238,6 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         }
     };
 
-    const openReactionPicker = (targetId: string) => {
-        if (selectedItems.size > 0) return;
-        if (!canReact) return;
-        setReactionPickerTargetId(targetId);
-    };
-
     const closeReactionPicker = () => {
         setReactionPickerTargetId(null);
     };
@@ -189,16 +260,17 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
 
     const handleCopy = async () => {
         const selectedAnnouncements = announcements.filter((item) => selectedItems.has(item.id));
-        const textToCopy = selectedAnnouncements.map((item) => item.content).join('\n\n');
+        const textToCopy = selectedAnnouncements
+            .map((item) => (item.title ? `${item.title}\n\n${item.content}` : item.content))
+            .join('\n\n');
         await Clipboard.setStringAsync(textToCopy);
         Alert.alert('Copied', 'Announcements copied to clipboard');
         clearSelection();
     };
 
-    const handleForward = async () => {
-        const selectedAnnouncements = announcements.filter((item) => selectedItems.has(item.id));
-        const textToShare = selectedAnnouncements
-            .map((item) => `${item.title}\n\n${item.content}`)
+    const performForward = async (items: Announcement[]) => {
+        const textToShare = items
+            .map((item) => `${item.title || 'Announcement'}\n\n${item.content}`)
             .join('\n\n----------------\n\n');
 
         try {
@@ -210,6 +282,11 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         } catch (error) {
             Alert.alert('Error', 'Failed to share content.');
         }
+    };
+
+    const handleForward = async () => {
+        const selectedAnnouncements = announcements.filter((item) => selectedItems.has(item.id));
+        await performForward(selectedAnnouncements);
     };
 
     const handleDelete = async () => {
@@ -242,12 +319,67 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         );
     };
 
+    const handleOpenAnnouncement = async (announcement: Announcement) => {
+        if (selectedItems.size > 0) {
+            toggleSelection(announcement.id);
+            return;
+        }
+
+        if (canTrackView && user && !viewSummary[announcement.id]?.hasViewed) {
+            try {
+                await postViewsService.add('announcement', announcement.id, user.id);
+                updateViewSummary(announcement.id);
+            } catch (error: any) {
+                if (error?.code !== '23505') {
+                    console.warn('Failed to add announcement view', error);
+                }
+            }
+        }
+    };
+
+    const handleToggleSaved = async (targetId: string) => {
+        if (!canSave || !user) return;
+
+        const isSaved = savedItemIds.has(targetId);
+        setSavedItemIds((prev) => {
+            const next = new Set(prev);
+            if (isSaved) {
+                next.delete(targetId);
+            } else {
+                next.add(targetId);
+            }
+            return next;
+        });
+
+        try {
+            if (isSaved) {
+                await savedItemsService.remove('announcement', targetId, user.id);
+            } else {
+                await savedItemsService.add('announcement', targetId, user.id);
+            }
+        } catch (error) {
+            console.error('Failed to toggle save:', error);
+            setSavedItemIds((prev) => {
+                const next = new Set(prev);
+                if (isSaved) {
+                    next.add(targetId);
+                } else {
+                    next.delete(targetId);
+                }
+                return next;
+            });
+            Alert.alert('Error', 'Failed to update saved items.');
+        }
+    };
+
     const renderItem = ({ item }: { item: Announcement }) => {
         const reactionData = reactionSummary[item.id];
         const reactionContent = (
-            <View style={styles.bubbleReactions}>
+            <View style={themedStyles.bubbleReactions}>
                 {REACTIONS.filter((r) => (reactionData?.counts?.[r.key] || 0) > 0).map((r) => (
-                    <Text key={r.key} style={styles.reactionEmojiSmall}>{r.emoji} <Text style={styles.reactionCountText}>{reactionData?.counts?.[r.key]}</Text></Text>
+                    <Text key={r.key} style={themedStyles.reactionEmojiSmall}>
+                        {r.emoji} <Text style={themedStyles.reactionCountText}>{reactionData?.counts?.[r.key]}</Text>
+                    </Text>
                 ))}
             </View>
         );
@@ -255,79 +387,139 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         const isSelected = selectedItems.has(item.id);
 
         return (
-            <MessageBubble
-                content={`**${item.title}**\n\n${item.content}`}
+            <MessageCard
+                title={item.title || undefined}
+                content={item.content}
                 created_at={item.created_at}
-                author_name={'Announcement'} // Or item.author_name if available
-                isAdmin={true}
+                author_name={item.author_name || 'Announcement'}
+                variant="announcement"
                 showViewCount={showViewCount}
                 viewCount={viewSummary[item.id]?.count || 0}
                 reactions={reactionContent}
-                selected={isSelected}
-                onLongPress={() => toggleSelection(item.id)}
-                onPress={() => {
-                    if (selectedItems.size > 0) {
-                        toggleSelection(item.id);
-                    }
-                }}
+                isSelected={isSelected}
+                isSaved={savedItemIds.has(item.id)}
+                showSaveButton={canSave && selectedItems.size === 0}
+                onToggleSave={() => handleToggleSaved(item.id)}
+                onLongPress={() => setLongPressedItemId(item.id)}
+                onPress={() => handleOpenAnnouncement(item)}
             />
         );
     };
 
     return (
-        <View style={styles.container}>
-            {/* Header - only show if not embedded (e.g. standalone screen) */}
-            {!embedded && selectedItems.size === 0 && (
-                <View style={styles.header}>
-                    <View>
-                        <Text style={styles.headerTitle}>CBN Announcements</Text>
-                        <Text style={styles.headerSubtitle}>Welcome, {user?.display_name}</Text>
-                    </View>
-                    <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-                        <Text style={styles.logoutText}>Logout</Text>
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            {selectedItems.size > 0 && (
-                <SelectionHeader
-                    selectedCount={selectedItems.size}
-                    onClearSelection={clearSelection}
-                    onDelete={handleDelete}
-                    onCopy={handleCopy}
-                    onForward={handleForward}
-                />
-            )}
-
-            {/* Admin Button */}
-            {!embedded && isAdmin && (
-                <TouchableOpacity
-                    style={styles.adminButton}
-                    onPress={() => navigation.navigate('AdminPost')}
-                >
-                    <Text style={styles.adminButtonText}>+ New Announcement</Text>
-                </TouchableOpacity>
-            )}
-
-            <FlatList
-                data={announcements}
-                renderItem={renderItem}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={[
-                    styles.list,
-                    {
-                        paddingTop: insets.bottom + 10,
-                        paddingBottom: insets.top + 10
-                    }
+        <View style={[themedStyles.container, { backgroundColor: theme.colors.background }]}>
+            <KeyboardAvoidingView
+                style={[
+                    { flex: 1 },
+                    Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
                 ]}
-                inverted
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
-                }
-                ListEmptyComponent={
-                    <Text style={styles.emptyText}>No announcements yet.</Text>
-                }
-            />
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+            >
+                {/* Header - only show if not embedded (e.g. standalone screen) */}
+                {!embedded && selectedItems.size === 0 && (
+                    <View style={[themedStyles.header, { backgroundColor: theme.colors.header, borderBottomColor: theme.colors.border }]}>
+                        <View>
+                            <Text style={[themedStyles.headerTitle, { color: theme.colors.text }]}>CBN Announcements</Text>
+                            <Text style={[themedStyles.headerSubtitle, { color: theme.colors.textSecondary }]}>Welcome, {user?.display_name}</Text>
+                        </View>
+                        <TouchableOpacity onPress={logout} style={[themedStyles.logoutBtn, { backgroundColor: theme.colors.surface }]}>
+                            <Text style={[themedStyles.logoutText, { color: theme.colors.textSecondary }]}>Logout</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Text Formatting Header */}
+                {isFormatting && (
+                    <FormattingHeader
+                        onFormat={(marker) => composerRef.current?.applyFormat(marker)}
+                        onClear={() => {
+                            Keyboard.dismiss();
+                        }}
+                    />
+                )}
+
+                {selectedItems.size > 0 && !isFormatting && (
+                    <SelectionHeader
+                        selectedCount={selectedItems.size}
+                        onClearSelection={clearSelection}
+                        onDelete={handleDelete}
+                        onCopy={handleCopy}
+                        onForward={handleForward}
+                    />
+                )}
+
+                {/* Admin Button */}
+                {!embedded && isAdmin && (
+                    <TouchableOpacity
+                        style={[themedStyles.adminButton, { backgroundColor: theme.colors.primary }]}
+                        onPress={() => navigation.navigate('AdminPost')}
+                    >
+                        <Text style={themedStyles.adminButtonText}>+ New Announcement</Text>
+                    </TouchableOpacity>
+                )}
+
+                <FlatList
+                    data={announcements}
+                    renderItem={renderItem}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={[
+                        themedStyles.list,
+                        {
+                            paddingTop: insets.bottom + 10,
+                            paddingBottom: 100 // Space for composer + tab bar
+                        }
+                    ]}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+                    }
+                    ListEmptyComponent={
+                        <Text style={[themedStyles.emptyText, { color: theme.colors.textSecondary }]}>No announcements yet.</Text>
+                    }
+                />
+
+                {/* Admin Composer */}
+                {isAdmin && (
+                    <Composer
+                        ref={composerRef}
+                        type="announcement"
+                        onSelectionChange={(sel) => {
+                            setIsFormatting(sel.start !== sel.end);
+                        }}
+                        onSend={async (text, _) => {
+                            const content = text.trim();
+
+                            // Optimistic Update
+                            const tempId = Math.random().toString();
+                            const newAnnouncement: Announcement = {
+                                id: tempId,
+                                title: '',
+                                content,
+                                author_id: user!.id,
+                                author_name: user!.display_name,
+                                created_at: new Date().toISOString(),
+                            };
+
+                            setAnnouncements(prev => [newAnnouncement, ...prev]);
+
+                            try {
+                                const created = await announcementService.create(
+                                    '',
+                                    content,
+                                    user!.id,
+                                    user!.display_name
+                                );
+                                // Replace temp with real
+                                setAnnouncements(prev => prev.map(a => a.id === tempId ? created : a));
+                            } catch (error) {
+                                console.error('Failed to post announcement:', error);
+                                Alert.alert('Error', 'Failed to post announcement.');
+                                setAnnouncements(prev => prev.filter(a => a.id !== tempId));
+                            }
+                        }}
+                    />
+                )}
+            </KeyboardAvoidingView>
 
             <Modal
                 visible={!!reactionPickerTargetId}
@@ -336,14 +528,14 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                 onRequestClose={closeReactionPicker}
             >
                 <TouchableWithoutFeedback onPress={closeReactionPicker}>
-                    <View style={styles.reactionPickerOverlay}>
+                    <View style={themedStyles.reactionPickerOverlay}>
                         <TouchableWithoutFeedback>
-                            <View style={styles.reactionPickerCard}>
-                                <View style={styles.reactionPickerRow}>
+                            <View style={[themedStyles.reactionPickerCard, { backgroundColor: theme.colors.surface }]}>
+                                <View style={themedStyles.reactionPickerRow}>
                                     {REACTIONS.map((reaction) => (
                                         <Pressable
                                             key={reaction.key}
-                                            style={styles.reactionPickerButton}
+                                            style={themedStyles.reactionPickerButton}
                                             onPress={() => {
                                                 if (reactionPickerTargetId) {
                                                     handleReact(reactionPickerTargetId, reaction.key);
@@ -351,7 +543,7 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                                                 closeReactionPicker();
                                             }}
                                         >
-                                            <Text style={styles.reactionPickerEmoji}>{reaction.emoji}</Text>
+                                            <Text style={themedStyles.reactionPickerEmoji}>{reaction.emoji}</Text>
                                         </Pressable>
                                     ))}
                                 </View>
@@ -360,14 +552,42 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                     </View>
                 </TouchableWithoutFeedback>
             </Modal>
+
+            <PostOptionsModal
+                visible={!!longPressedItemId}
+                onClose={() => setLongPressedItemId(null)}
+                onSave={async () => {
+                    if (longPressedItemId) {
+                        await handleToggleSaved(longPressedItemId);
+                        setLongPressedItemId(null);
+                    }
+                }}
+                onForward={() => {
+                    const item = announcements.find(a => a.id === longPressedItemId);
+                    if (item) {
+                        performForward([item]);
+                        setLongPressedItemId(null);
+                    }
+                }}
+                onCopy={async () => {
+                    const item = announcements.find(a => a.id === longPressedItemId);
+                    if (item) {
+                        const text = item.title ? `${item.title}\n\n${item.content}` : item.content;
+                        await Clipboard.setStringAsync(text);
+                        Alert.alert('Copied', 'Announcement copied to clipboard');
+                    }
+                    setLongPressedItemId(null);
+                }}
+                isSaved={longPressedItemId ? savedItemIds.has(longPressedItemId) : false}
+            />
         </View>
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#EFE7DE', // Same background
+        backgroundColor: theme.colors.background,
     },
     header: {
         flexDirection: 'row',
@@ -383,11 +603,13 @@ const styles = StyleSheet.create({
         fontSize: 22,
         fontWeight: 'bold',
         color: theme.colors.text,
+        fontFamily: 'Inter',
     },
     headerSubtitle: {
         fontSize: 14,
         color: theme.colors.textSecondary,
         marginTop: 2,
+        fontFamily: 'Inter',
     },
     logoutBtn: {
         paddingHorizontal: 12,
@@ -398,6 +620,7 @@ const styles = StyleSheet.create({
     logoutText: {
         color: theme.colors.textSecondary,
         fontSize: 14,
+        fontFamily: 'Inter',
     },
     adminButton: {
         backgroundColor: theme.colors.primary,
@@ -411,6 +634,7 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: '600',
+        fontFamily: 'Inter',
     },
     list: {
         paddingVertical: 10,
@@ -421,6 +645,7 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
         marginTop: 40,
         fontSize: 16,
+        fontFamily: 'Inter',
     },
     bubbleReactions: {
         flexDirection: 'row',
@@ -432,7 +657,7 @@ const styles = StyleSheet.create({
     },
     reactionCountText: {
         fontSize: 10,
-        color: '#777',
+        color: theme.colors.textSecondary,
     },
     reactionPickerOverlay: {
         flex: 1,
@@ -441,7 +666,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     reactionPickerCard: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surface,
         borderRadius: 24,
         paddingVertical: 12,
         paddingHorizontal: 16,

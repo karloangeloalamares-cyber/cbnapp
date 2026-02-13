@@ -10,6 +10,7 @@ interface AuthContextType {
     signUp: (email: string, password: string, displayName: string) => Promise<boolean>;
     logout: () => Promise<void>;
     refreshProfile: () => Promise<void>;
+    googleLogin: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -41,13 +42,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
+        let mounted = true;
+
+        console.log('[AuthContext] Starting session check...');
         setLoading(true);
+
+        // Safety timeout to prevent infinite loading screen
+        const safetyTimeout = setTimeout(() => {
+            if (mounted && loading) {
+                console.warn('[AuthContext] Session check timed out, forcing app load.');
+                setLoading(false);
+            }
+        }, 5000);
+
         // Check for an existing session on startup
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
+        supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+            console.log('[AuthContext] Session check complete. Session:', !!session, 'Error:', error);
+            if (error) {
+                console.error('[AuthContext] Session error:', error);
+            }
+
             if (session?.user) {
+                console.log('[AuthContext] Fetching profile for user:', session.user.id);
                 await fetchProfile(session.user.id, session.user.email || '');
             }
-            setLoading(false);
+            if (mounted) {
+                clearTimeout(safetyTimeout);
+                setLoading(false);
+            }
+        }).catch(err => {
+            console.error('[AuthContext] Unexpected error during session check:', err);
+            if (mounted) {
+                clearTimeout(safetyTimeout);
+                setLoading(false);
+            }
         });
 
         // Listen for auth changes (e.g. token refresh, sign out, generic sign in)
@@ -57,7 +85,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            mounted = false;
+            clearTimeout(safetyTimeout);
+            subscription.unsubscribe();
+        };
     }, []);
 
     const login = async (email: string, password?: string): Promise<boolean> => {
@@ -100,8 +132,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const googleLogin = async () => {
+        setLoading(true);
+        try {
+            const { signInWithGoogle } = await import('../utils/AuthUtils');
+            const { user: u, error } = await signInWithGoogle();
+            if (u) {
+                setUser(u);
+                return true;
+            }
+            if (error) {
+                console.error('Google login error:', error);
+                // alert(error); // Optional: don't alert cancellation
+                return false;
+            }
+        } catch (e) {
+            console.error('Google login exception:', e);
+        } finally {
+            setLoading(false);
+        }
+        return false;
+    };
+
     return (
-        <AuthContext.Provider value={{ user, loading, login, signUp, logout, refreshProfile }}>
+        <AuthContext.Provider value={{ user, loading, login, signUp, logout, refreshProfile, googleLogin }}>
             {children}
         </AuthContext.Provider>
     );

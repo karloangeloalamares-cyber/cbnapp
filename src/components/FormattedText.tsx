@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, StyleSheet, Platform, TextStyle } from 'react-native';
+import { Text, StyleSheet, Platform, TextStyle, StyleProp } from 'react-native';
 
 type SegmentStyle = 'bold' | 'italic' | 'strike' | 'underline' | 'mono';
 
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     mono: { fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) },
 });
 
-export const FormattedText = ({ text, style }: { text: string; style?: TextStyle }) => {
+export const FormattedText = ({ text, style }: { text: string; style?: StyleProp<TextStyle> }) => {
     const segments = parseFormattedText(text || '');
     return (
         <Text style={style}>

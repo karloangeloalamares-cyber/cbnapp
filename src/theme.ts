@@ -1,20 +1,25 @@
-export const theme = {
+export type ThemeType = typeof lightTheme;
+
+export const lightTheme = {
+    dark: false,
     colors: {
-        background: '#EFE7DE', // WhatsApp Chat Background (Beige)
-        header: '#FFFFFF', // Modern WhatsApp White Header
-        surface: '#FFFFFF',
-        primary: '#008069', // WhatsApp Teal
+        background: '#F5F5F5', // Light background
+        header: '#FFFFFF', // White header
+        surface: '#FFFFFF', // White surface
+        primary: '#20B65E', // CBN Green (from Figma links)
         secondary: '#6B7280',
-        text: '#111B21', // Darker text for better contrast
-        textSecondary: '#667781', // WhatsApp secondary text
+        text: '#000000', // Black text
+        textSecondary: '#666666', // Gray text
         border: '#E5E7EB',
         inputBackground: '#FFFFFF',
-        messageSent: '#E7FFDB', // Light Green
-        messageReceived: '#FFFFFF', // White
-        fab: '#00A884', // Bright Green FAB
-        icon: '#54656F', // Gray icons
-        unreadBadge: '#25D366',
-        blueTick: '#53BDEB',
+        messageSent: '#E7FFDB',
+        messageReceived: '#FFFFFF',
+        fab: '#20B65E', // Green FAB
+        icon: '#54656F',
+        unreadBadge: '#20B65E',
+        blueTick: '#20B65E',
+        danger: '#DC2626',
+        cardBackground: '#FFFFFF', // White card for light mode
     },
     spacing: {
         xs: 4,
@@ -24,10 +29,50 @@ export const theme = {
         xl: 24,
     },
     typography: {
+        adminTitle: { fontSize: 12, fontWeight: '600' as '600', fontFamily: 'Inter' },
+        postTextRegular: { fontSize: 16, fontWeight: '500' as '500', fontFamily: 'Inter', lineHeight: 18 },
+        postTextBold: { fontSize: 16, fontWeight: '700' as '700', fontFamily: 'Inter', lineHeight: 18 },
+        postLink: { fontSize: 16, fontWeight: '400' as '400', fontFamily: 'Inter', lineHeight: 23 },
         header: { fontSize: 22, fontWeight: 'bold' as 'bold' },
         subHeader: { fontSize: 16, fontWeight: '600' as '600' },
         body: { fontSize: 16 },
         caption: { fontSize: 14, color: '#6B7280' },
     }
 };
+
+export const darkTheme = {
+    dark: true,
+    colors: {
+        background: '#0B141A', // CBN Dark Background (from Figma)
+        header: '#0B141A', // Dark header
+        surface: '#1C1C1E', // Dark surface/cards (from Figma)
+        primary: '#20B65E', // CBN Green (from Figma links)
+        secondary: '#8696A0',
+        text: '#FFFFFF', // White text (from Figma)
+        textSecondary: '#BDBDBD', // Light gray text (from Figma)
+        border: '#2A3942',
+        inputBackground: '#2A3942',
+        messageSent: '#005C4B',
+        messageReceived: '#1C1C1E', // Dark gray for received (Figma card color)
+        fab: '#20B65E', // Green FAB matching primary
+        icon: '#8696A0', // Gray icons
+        unreadBadge: '#20B65E',
+        blueTick: '#20B65E',
+        danger: '#EF4444',
+        cardBackground: '#1C1C1E', // Dark card background (from Figma)
+    },
+    spacing: lightTheme.spacing,
+    typography: {
+        adminTitle: { fontSize: 12, fontWeight: '600' as '600', fontFamily: 'Inter' },
+        postTextRegular: { fontSize: 16, fontWeight: '500' as '500', fontFamily: 'Inter', lineHeight: 18 },
+        postTextBold: { fontSize: 16, fontWeight: '700' as '700', fontFamily: 'Inter', lineHeight: 18 },
+        postLink: { fontSize: 16, fontWeight: '400' as '400', fontFamily: 'Inter', lineHeight: 23 },
+        header: { fontSize: 22, fontWeight: 'bold' as 'bold' },
+        subHeader: { fontSize: 16, fontWeight: '600' as '600' },
+        body: { fontSize: 16 },
+        caption: { fontSize: 14, color: '#8696A0' },
+    }
+};
+
+export const theme = lightTheme; // Default export for now to prevent breaking
 

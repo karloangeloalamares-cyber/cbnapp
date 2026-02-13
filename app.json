@@ -3,6 +3,7 @@
     "name": "cbn-app",
     "slug": "cbn-app",
     "version": "1.0.0",
+    "scheme": "cbnapp",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -23,6 +24,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.kalamares.cbnapp",
       "googleServicesFile": "./google-services.json"
     },
@@ -34,6 +36,9 @@
         "projectId": "60214d42-0c2f-408f-8930-e7bd7b0cf54f"
       }
     },
-    "owner": "kalamares"
+    "owner": "kalamares",
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }

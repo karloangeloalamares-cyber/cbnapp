@@ -51,6 +51,16 @@ export interface PostView {
   created_at: string;
 }
 
+export type SavedTargetType = 'news' | 'announcement';
+
+export interface SavedItem {
+  id: string;
+  target_type: SavedTargetType;
+  target_id: string;
+  user_id: string;
+  created_at: string;
+}
+
 export type NotificationType = 'news_posted' | 'announcement_posted';
 
 export interface AppNotification {

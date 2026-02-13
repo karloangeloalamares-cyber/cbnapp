@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable, Platform, Linking } from 'react-native';
-import { theme } from '../theme';
+import { View, Text, StyleSheet, Image, Pressable, Platform, Linking, useWindowDimensions } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import { FormattedText } from './FormattedText';
-import { Avatar } from './Avatar';
 
 interface MessageBubbleProps {
     content: string;
@@ -39,9 +38,10 @@ export const MessageBubble = ({
     onPress,
     viewCount,
     showViewCount,
-    isAdmin = false,
+    isAdmin = false, // We'll keep the prop but it won't affect layout as much anymore
     selected = false,
 }: MessageBubbleProps) => {
+    const { theme } = useTheme();
 
     const handleLinkPress = () => {
         if (link_url) {
@@ -50,43 +50,40 @@ export const MessageBubble = ({
     };
 
     return (
-        <View style={[
-            styles.wrapper,
-            isAdmin ? styles.wrapperReceived : styles.wrapperSent
-        ]}>
-            {/* Avatar for Admin/Received messages */}
-            {isAdmin && (
-                <View style={styles.avatarContainer}>
-                    <Avatar
-                        name={author_name || "Admin"}
-                        size={30}
-                    />
-                </View>
-            )}
-
+        <View style={styles.wrapper}>
             <Pressable
                 style={[
                     styles.container,
-                    isAdmin ? styles.receivedContainer : styles.sentContainer,
+                    { backgroundColor: theme.colors.surface },
                     selected && styles.selectedContainer
                 ]}
                 onLongPress={onLongPress}
                 onPress={onPress}
                 delayLongPress={300}
             >
-                {/* Tail */}
-                {isAdmin ? (
-                    <View style={[styles.tail, styles.tailLeft]} />
-                ) : (
-                    <View style={[styles.tail, styles.tailRight]} />
+                {/* Feed Card Header */}
+                {isAdmin && (
+                    <View style={styles.headerContainer}>
+                        <Image
+                            source={require('../../assets/CBN_Logo-removebg-preview.png')}
+                            style={styles.headerIcon}
+                            resizeMode="contain"
+                        />
+                        <View>
+                            <Text style={[styles.headerTitle, { color: theme.colors.danger }]}>CBN Unfiltered</Text>
+                            {author_name && author_name !== 'Admin' && author_name !== 'CBN Unfiltered' && (
+                                <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>{author_name}</Text>
+                            )}
+                        </View>
+                    </View>
                 )}
 
-                {/* Author Name for Admin posts (inside bubble, colorful) */}
-                {isAdmin && author_name && (
-                    <Text style={[styles.authorName, { color: '#E54242' }]}>{author_name}</Text>
+                {/* Author Name for non-admin/sent messages if needed, usually just for group chats */}
+                {!isAdmin && author_name && (
+                    <Text style={[styles.authorName, { color: theme.colors.primary }]}>{author_name}</Text>
                 )}
 
-                {/* Image Attachment */}
+                {/* Image Attachment - Full Width */}
                 {image_url && (
                     <View style={styles.imageContainer}>
                         <Image
@@ -99,12 +96,13 @@ export const MessageBubble = ({
 
                 {/* Text Content */}
                 <View style={styles.contentContainer}>
-                    <FormattedText text={content} style={styles.messageText} />
+                    <FormattedText text={content} style={[styles.messageText, { color: theme.colors.text }]} />
 
                     {/* Link Preview (Simple) */}
                     {link_url && (
                         <Pressable onPress={handleLinkPress} style={styles.linkContainer}>
-                            <Text style={styles.linkText} numberOfLines={1}>{link_url}</Text>
+                            <Text style={styles.linkLabel}>Link to CBN FILTERED</Text>
+                            <Text style={[styles.linkText, { color: theme.colors.primary }]} numberOfLines={1}>{link_url}</Text>
                         </Pressable>
                     )}
                 </View>
@@ -114,9 +112,9 @@ export const MessageBubble = ({
                     {reactions && <View style={styles.reactionsContainer}>{reactions}</View>}
                     <View style={styles.metaContainer}>
                         {showViewCount && (
-                            <Text style={styles.viewCount}>👁 {viewCount}</Text>
+                            <Text style={[styles.viewCount, { color: theme.colors.textSecondary }]}>👁 {viewCount}</Text>
                         )}
-                        <Text style={styles.timeText}>{formatTime(created_at)}</Text>
+                        <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>{formatTime(created_at)}</Text>
                     </View>
                 </View>
             </Pressable>
@@ -126,151 +124,99 @@ export const MessageBubble = ({
 
 const styles = StyleSheet.create({
     wrapper: {
-        flexDirection: 'row',
+        width: '100%',
+        paddingHorizontal: 0, // Parent handles padding
         marginVertical: 4,
-        marginHorizontal: 8,
-        alignItems: 'flex-end', // Avatar at bottom
-    },
-    wrapperReceived: {
-        justifyContent: 'flex-start',
-    },
-    wrapperSent: {
-        justifyContent: 'flex-end',
-    },
-    avatarContainer: {
-        marginRight: 4,
-        marginBottom: 2,
     },
     container: {
-        maxWidth: '80%',
+        width: '100%', // Uniform full width
         borderRadius: 12,
-        padding: 6,
-        paddingBottom: 4,
-        marginVertical: 4,
-        marginHorizontal: 4, // Reduced because wrapper handles outer margin
+        padding: 12,
+        paddingBottom: 10,
         elevation: 1,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.08,
         shadowRadius: 1,
-        minWidth: 100,
-    },
-    receivedContainer: {
-        alignSelf: 'flex-start',
-        borderTopLeftRadius: 0,
-        backgroundColor: '#FFFFFF',
-        marginLeft: 8, // Reduced space for tail
-    },
-    sentContainer: {
-        alignSelf: 'flex-end',
-        borderTopRightRadius: 0,
-        backgroundColor: '#E7FFDB',
-        marginRight: 8, // Reduced space for tail
     },
     selectedContainer: {
         backgroundColor: '#C8E6C9', // Selection highlight
+        opacity: 0.9,
     },
-    tail: {
-        position: 'absolute',
-        top: 0,
-        width: 12,
-        height: 12,
-        backgroundColor: 'transparent',
-        borderTopWidth: 12,
-        borderStyle: 'solid',
+    headerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
     },
-    tailLeft: {
-        left: -8,
-        borderTopColor: '#FFFFFF',
-        borderLeftColor: 'transparent',
-        borderRightColor: 'transparent',
-        borderLeftWidth: 12,
-        transform: [{ rotate: '90deg' }],
-        borderTopWidth: 0,
-        borderRightWidth: 12,
-        borderBottomWidth: 12,
-        borderLeftWidth: 0,
-        borderRightColor: '#FFFFFF',
-        borderBottomColor: 'transparent',
-        top: 0,
+    headerIcon: {
+        width: 24,
+        height: 24,
+        marginRight: 8,
     },
-    tailRight: {
-        right: -8,
-        borderTopWidth: 0,
-        borderRightWidth: 0,
-        borderBottomWidth: 12,
-        borderLeftWidth: 12,
-        borderLeftColor: '#E7FFDB',
-        borderBottomColor: 'transparent',
-        top: 0,
+    headerTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    headerSubtitle: {
+        fontSize: 11,
     },
     authorName: {
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: 'bold',
-        color: '#E54242',
-        marginBottom: 4,
-        marginHorizontal: 4,
-        marginTop: 2,
+        marginBottom: 6,
     },
     imageContainer: {
-        marginBottom: 4,
+        marginBottom: 8,
         borderRadius: 8,
         overflow: 'hidden',
-        minHeight: 150,
-        backgroundColor: '#f0f0f0',
+        minHeight: 200,
+        backgroundColor: '#2A3942', // Placeholder color
     },
     image: {
         width: '100%',
         height: 200,
     },
     contentContainer: {
-        marginBottom: 2,
-        paddingHorizontal: 4,
+        marginBottom: 6,
     },
     messageText: {
-        fontSize: 15.5,
-        color: '#111827',
-        lineHeight: 21,
+        fontSize: 15,
+        lineHeight: 22,
     },
     linkContainer: {
-        marginTop: 4,
-        padding: 8,
-        backgroundColor: '#F7F7F7',
-        borderRadius: 6,
-        borderLeftWidth: 3,
-        borderLeftColor: '#008069',
+        marginTop: 8,
+    },
+    linkLabel: {
+        fontSize: 11,
+        color: '#8696A0',
+        marginBottom: 2,
+        fontWeight: '600',
     },
     linkText: {
-        color: '#53BDEB',
-        fontSize: 13,
+        fontSize: 14,
+        textDecorationLine: 'underline',
     },
     footer: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        marginTop: 2,
-        paddingRight: 2,
-        paddingBottom: 2,
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        marginTop: 4,
     },
     reactionsContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        marginRight: 'auto',
         maxWidth: '70%',
     },
     metaContainer: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginLeft: 'auto', // Push to right if reactions exist
     },
     viewCount: {
-        fontSize: 10,
-        color: '#667781',
-        marginRight: 4,
+        fontSize: 11,
+        marginRight: 6,
     },
     timeText: {
         fontSize: 11,
-        color: '#667781',
-        marginLeft: 4,
-        marginBottom: 1,
     },
 });

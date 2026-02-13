@@ -121,7 +121,33 @@ create policy "Users can add views." on public.cbn_app_post_views for insert wit
   auth.uid() = user_id and exists (select 1 from public.cbn_app_profiles where id = auth.uid() and role = 'user')
 );
 
--- 5B. PUSH TOKENS (For Push Notifications)
+-- 5B. SAVED ITEMS (Users can save posts)
+create table if not exists public.cbn_app_saved_items (
+  id uuid default uuid_generate_v4() primary key,
+  target_type text not null check (target_type in ('news', 'announcement')),
+  target_id uuid not null,
+  user_id uuid references public.cbn_app_profiles(id) not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create unique index if not exists cbn_app_saved_items_unique on public.cbn_app_saved_items (target_type, target_id, user_id);
+create index if not exists cbn_app_saved_items_user_idx on public.cbn_app_saved_items (user_id, created_at desc);
+
+alter table public.cbn_app_saved_items enable row level security;
+drop policy if exists "Users can view own saved items." on public.cbn_app_saved_items;
+create policy "Users can view own saved items." on public.cbn_app_saved_items for select using (
+  auth.uid() = user_id
+);
+drop policy if exists "Users can save items." on public.cbn_app_saved_items;
+create policy "Users can save items." on public.cbn_app_saved_items for insert with check (
+  auth.uid() = user_id and exists (select 1 from public.cbn_app_profiles where id = auth.uid() and role = 'user')
+);
+drop policy if exists "Users can unsave own items." on public.cbn_app_saved_items;
+create policy "Users can unsave own items." on public.cbn_app_saved_items for delete using (
+  auth.uid() = user_id
+);
+
+-- 5C. PUSH TOKENS (For Push Notifications)
 create table if not exists public.cbn_app_push_tokens (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references public.cbn_app_profiles(id) not null,

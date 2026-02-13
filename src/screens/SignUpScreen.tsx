@@ -3,18 +3,21 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Platform, A
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import { theme } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import { GoogleIcon } from '../components/Icons';
 
 export const SignUpScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
-    const { signUp, loading } = useAuth();
+    const { signUp, loading, googleLogin } = useAuth();
+    const { theme } = useTheme();
     const [displayName, setDisplayName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    const styles = React.useMemo(() => createStyles(theme), [theme]);
 
     const showAlert = (title: string, msg: string, onOk?: () => void) => {
         if (Platform.OS === 'web') {
@@ -26,20 +29,13 @@ export const SignUpScreen = () => {
         Alert.alert(title, msg, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
     };
 
-    const hasMinLength = password.length >= 8;
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasLowercase = /[a-z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSymbol = /[^A-Za-z0-9]/.test(password);
-    const isPasswordValid = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSymbol;
-
     const handleSignUp = async () => {
         if (!displayName.trim() || !email.trim() || !password.trim()) {
             showAlert('Missing info', 'Please fill all fields.');
             return;
         }
-        if (!isPasswordValid) {
-            showAlert('Weak password', 'Password must meet all requirements listed below.');
+        if (password.length < 6) {
+            showAlert('Weak Password', 'Password should be at least 6 characters.');
             return;
         }
         if (password !== confirmPassword) {
@@ -54,221 +50,217 @@ export const SignUpScreen = () => {
         <KeyboardAvoidingView
             style={[styles.container, { paddingTop: insets.top }]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={insets.top + 12}
         >
-            <Pressable
-                style={[styles.backButton, { top: insets.top + 8 }]}
-                onPress={() => navigation.goBack()}
-            >
-                <Text style={styles.backText}>&lt; Back</Text>
-            </Pressable>
-            <ScrollView
-                contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 20 }]}
-                keyboardShouldPersistTaps="handled"
-            >
-                <Image
-                    source={require('../../assets/CBN_Logo-removebg-preview.png')}
-                    style={styles.logoImage}
-                    resizeMode="contain"
-                />
-                <Text style={styles.title}>Create Account</Text>
-                <Text style={styles.subtitle}>Join CBN Unfiltered</Text>
-
-                <TextInput
-                    style={styles.input}
-                    value={displayName}
-                    onChangeText={setDisplayName}
-                    placeholder="Display name"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    autoCapitalize="words"
-                />
-
-                <TextInput
-                    style={styles.input}
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="Email"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                />
-
-                <View style={styles.passwordContainer}>
-                    <TextInput
-                        style={styles.passwordInput}
-                        value={password}
-                        onChangeText={setPassword}
-                        placeholder="Password"
-                        placeholderTextColor={theme.colors.textSecondary}
-                        secureTextEntry={!showPassword}
-                    />
-                    <Pressable style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
-                        <Text style={styles.eyeText}>{showPassword ? 'Hide' : 'Show'}</Text>
-                    </Pressable>
-                </View>
-
-                {password.length > 0 && (
-                    <View style={styles.requirementsBox}>
-                        <Text style={[styles.reqItem, hasMinLength && styles.reqMet]}>
-                            {hasMinLength ? '\u2713' : '\u2022'} At least 8 characters
-                        </Text>
-                        <Text style={[styles.reqItem, hasUppercase && styles.reqMet]}>
-                            {hasUppercase ? '\u2713' : '\u2022'} One uppercase letter (A-Z)
-                        </Text>
-                        <Text style={[styles.reqItem, hasLowercase && styles.reqMet]}>
-                            {hasLowercase ? '\u2713' : '\u2022'} One lowercase letter (a-z)
-                        </Text>
-                        <Text style={[styles.reqItem, hasNumber && styles.reqMet]}>
-                            {hasNumber ? '\u2713' : '\u2022'} One number (0-9)
-                        </Text>
-                        <Text style={[styles.reqItem, hasSymbol && styles.reqMet]}>
-                            {hasSymbol ? '\u2713' : '\u2022'} One symbol (!@#$...)
-                        </Text>
-                    </View>
-                )}
-
-                <View style={styles.passwordContainer}>
-                    <TextInput
-                        style={styles.passwordInput}
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        placeholder="Confirm password"
-                        placeholderTextColor={theme.colors.textSecondary}
-                        secureTextEntry={!showConfirmPassword}
-                    />
-                    <Pressable style={styles.eyeButton} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                        <Text style={styles.eyeText}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
-                    </Pressable>
-                </View>
-
+            <View style={styles.header}>
                 <TouchableOpacity
-                    style={[styles.button, loading && styles.buttonDisabled]}
-                    onPress={handleSignUp}
-                    disabled={loading}
+                    onPress={() => {
+                        if (navigation.canGoBack()) {
+                            navigation.goBack();
+                        } else {
+                            navigation.navigate('Welcome');
+                        }
+                    }}
+                    style={styles.backButton}
                 >
-                    <Text style={styles.buttonText}>
-                        {loading ? 'Creating account...' : 'Sign Up'}
-                    </Text>
+                    <Text style={styles.backArrow}>←</Text>
                 </TouchableOpacity>
+                <Text style={styles.headerTitle}>Back to Login</Text>
+                <View style={{ width: 24 }} />
+            </View>
 
-                <Pressable onPress={() => navigation.goBack()}>
-                    <Text style={styles.linkText}>Already have an account? Log in</Text>
-                </Pressable>
+            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+                <Text style={styles.welcomeText}>Welcome to CBN Unfiltered</Text>
+
+                <View style={styles.form}>
+                    <View style={styles.inputContainer}>
+                        <TextInput
+                            style={styles.input}
+                            value={displayName}
+                            onChangeText={setDisplayName}
+                            placeholder="Full Name"
+                            placeholderTextColor="#666666"
+                            autoCapitalize="words"
+                        />
+                    </View>
+
+                    <View style={styles.inputContainer}>
+                        <TextInput
+                            style={styles.input}
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder="Email"
+                            placeholderTextColor="#666666"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                        />
+                    </View>
+
+                    <View style={styles.inputContainer}>
+                        <TextInput
+                            style={styles.input}
+                            value={password}
+                            onChangeText={setPassword}
+                            placeholder="Password"
+                            placeholderTextColor="#666666"
+                            secureTextEntry={!showPassword}
+                        />
+                        <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                            {/* Placeholder for eye icon */}
+                            <Text style={{ color: '#666', fontSize: 18 }}>👁️</Text>
+                        </Pressable>
+                    </View>
+
+                    <View style={styles.inputContainer}>
+                        <TextInput
+                            style={styles.input}
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                            placeholder="Confirm Password"
+                            placeholderTextColor="#666666"
+                            secureTextEntry
+                        />
+                    </View>
+
+                    <TouchableOpacity
+                        style={[styles.createButton, loading && { opacity: 0.7 }]}
+                        onPress={handleSignUp}
+                        disabled={loading}
+                    >
+                        <Text style={styles.createButtonText}>{loading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.dividerContainer}>
+                        <View style={styles.dividerLine} />
+                        <Text style={styles.dividerText}>or</Text>
+                        <View style={styles.dividerLine} />
+                    </View>
+
+                    <TouchableOpacity
+                        style={styles.googleButton}
+                        onPress={googleLogin}
+                    >
+                        <GoogleIcon size={20} />
+                        <Text style={styles.googleButtonText}>Sign up with Google</Text>
+                    </TouchableOpacity>
+                </View>
             </ScrollView>
         </KeyboardAvoidingView>
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
-    },
-    backButton: {
-        position: 'absolute',
-        left: 16,
-        zIndex: 1,
-        paddingVertical: 6,
-        paddingHorizontal: 8,
-    },
-    backText: {
-        fontSize: 14,
-        color: theme.colors.primary,
-        fontWeight: '600',
-    },
-    content: {
-        flexGrow: 1,
-        justifyContent: 'center',
-        padding: 30,
-    },
-    logoImage: {
-        width: 120,
-        height: 80,
-        alignSelf: 'center',
-        marginBottom: 16,
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: theme.colors.text,
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: theme.colors.textSecondary,
-        textAlign: 'center',
-        marginBottom: 32,
-    },
-    input: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        padding: 16,
-        fontSize: 16,
-        color: theme.colors.text,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    passwordContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        marginBottom: 16,
-    },
-    passwordInput: {
-        flex: 1,
-        padding: 16,
-        fontSize: 16,
-        color: theme.colors.text,
-    },
-    eyeButton: {
-        paddingHorizontal: 14,
-        paddingVertical: 16,
-    },
-    eyeText: {
-        fontSize: 14,
-        color: theme.colors.primary,
-        fontWeight: '600',
-    },
-    requirementsBox: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 10,
-        padding: 12,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    reqItem: {
-        fontSize: 13,
-        color: theme.colors.textSecondary,
-        marginBottom: 4,
-    },
-    reqMet: {
-        color: '#2E7D32',
-    },
-    button: {
-        backgroundColor: theme.colors.primary,
-        borderRadius: 12,
-        padding: 16,
-        alignItems: 'center',
-        marginTop: 4,
-    },
-    buttonDisabled: {
-        opacity: 0.6,
-    },
-    buttonText: {
-        color: '#FFFFFF',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-    linkText: {
-        marginTop: 20,
-        fontSize: 14,
-        color: theme.colors.primary,
-        textAlign: 'center',
-    }
-});
+const createStyles = (theme: any) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: '#000000',
+        },
+        header: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 20,
+            paddingBottom: 20,
+        },
+        backButton: {
+            padding: 8,
+        },
+        backArrow: {
+            color: '#fff',
+            fontSize: 24,
+        },
+        headerTitle: {
+            color: '#fff',
+            fontSize: 16,
+            fontFamily: 'Inter',
+            fontWeight: '500',
+        },
+        content: {
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: 100,
+        },
+        welcomeText: {
+            fontSize: 24,
+            color: '#FFFFFF',
+            textAlign: 'center',
+            marginBottom: 32,
+            fontFamily: 'Inter',
+            fontWeight: '600',
+        },
+        form: {
+            gap: 16,
+        },
+        inputContainer: {
+            backgroundColor: '#111111',
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#333333',
+            height: 56,
+            justifyContent: 'center',
+            paddingHorizontal: 16,
+        },
+        input: {
+            color: '#FFFFFF',
+            fontSize: 16,
+            fontFamily: 'Inter',
+            flex: 1,
+        },
+        eyeIcon: {
+            position: 'absolute',
+            right: 16,
+        },
+        createButton: {
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            height: 56,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginTop: 16,
+        },
+        createButtonText: {
+            color: '#000000',
+            fontSize: 16,
+            fontWeight: 'bold',
+            fontFamily: 'Inter',
+            letterSpacing: 0.5,
+        },
+        dividerContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginVertical: 16,
+        },
+        dividerLine: {
+            flex: 1,
+            height: 1,
+            backgroundColor: '#333333',
+        },
+        dividerText: {
+            color: '#666666',
+            paddingHorizontal: 16,
+            fontSize: 14,
+            fontFamily: 'Inter',
+        },
+        googleButton: {
+            backgroundColor: '#FFFFFF',
+            borderRadius: 8,
+            height: 50,
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexDirection: 'row',
+            shadowColor: "#000",
+            shadowOffset: {
+                width: 0,
+                height: 1,
+            },
+            shadowOpacity: 0.20,
+            shadowRadius: 1.41,
+            elevation: 2,
+        },
+        googleButtonText: {
+            color: 'rgba(0, 0, 0, 0.54)',
+            fontSize: 16,
+            fontWeight: '600',
+            fontFamily: 'Roboto',
+            marginLeft: 12,
+        },
+    });

@@ -1,141 +1,119 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Pressable, Alert, Platform, Image } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    Image,
+    Pressable,
+    TouchableOpacity,
+    TextInput,
+    Alert,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { theme } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import { supabase } from '../services/supabaseClient';
+import { SettingsIcon } from '../components/Icons';
 
 export const ProfileScreen = () => {
     const insets = useSafeAreaInsets();
-    const navigation = useNavigation();
-    const { user, logout, refreshProfile } = useAuth();
+    const navigation = useNavigation<any>();
+    const { user, refreshProfile } = useAuth();
+    const { theme } = useTheme();
+    const styles = useMemo(() => createStyles(), []);
 
-    const [displayName, setDisplayName] = useState(user?.display_name || '');
-    const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || null);
     const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState(false);
+    const [displayName, setDisplayName] = useState('');
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-    const showAlert = (title: string, msg: string) => {
-        if (Platform.OS === 'web') {
-            const alertFn = (globalThis as any)?.alert as ((message: string) => void) | undefined;
-            if (alertFn) alertFn(msg);
-            return;
-        }
-        Alert.alert(title, msg);
-    };
+    useEffect(() => {
+        if (!user) return;
+        setDisplayName(user.display_name || '');
+        setAvatarUrl(user.avatar_url || null);
+    }, [user]);
 
     const pickImage = async () => {
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.5,
-            });
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.7,
+        });
 
-            if (!result.canceled && result.assets && result.assets.length > 0) {
-                setAvatarUrl(result.assets[0].uri);
-            }
-        } catch (error) {
-            console.error('Error picking image:', error);
-            showAlert('Error', 'Failed to pick image');
-        }
-    };
-
-    const uploadAvatar = async (uri: string): Promise<string | null> => {
-        if (!uri.startsWith('file://') && !uri.startsWith('content://')) {
-            return uri; // Already a remote URL
-        }
-
-        try {
-            const formData = new FormData();
-            const filename = uri.split('/').pop() || `avatar-${Date.now()}.jpg`;
-            const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
-            const path = `avatars/${user?.id}/${Date.now()}.${ext}`;
-
-            formData.append('file', {
-                uri,
-                name: filename,
-                type: `image/${ext === 'jpg' ? 'jpeg' : ext}`
-            } as any);
-
-            const { data, error } = await supabase.storage
-                .from('cbn_app_media')
-                .upload(path, formData, { contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`, upsert: true });
-
-            if (error) throw error;
-
-            const { data: { publicUrl } } = supabase.storage.from('cbn_app_media').getPublicUrl(path);
-            return publicUrl;
-        } catch (error: any) {
-            console.error('Upload failed:', error);
-            throw new Error(error.message || 'Failed to upload avatar');
+        if (!result.canceled && result.assets.length > 0) {
+            setAvatarUrl(result.assets[0].uri);
         }
     };
 
     const handleUpdate = async () => {
         if (!user) return;
-        if (!displayName.trim()) {
-            showAlert('Error', 'Display name cannot be empty');
+        const nextDisplayName = displayName.trim();
+
+        if (!nextDisplayName) {
+            Alert.alert('Display name required', 'Please enter a display name before saving.');
             return;
         }
 
         setLoading(true);
         try {
-            let finalAvatarUrl = user.avatar_url;
-
-            if (avatarUrl && avatarUrl !== user.avatar_url) {
-                setUploading(true);
-                const uploadedUrl = await uploadAvatar(avatarUrl);
-                if (uploadedUrl) {
-                    finalAvatarUrl = uploadedUrl;
-                }
-                setUploading(false);
-            }
-
-            const { error } = await supabase
+            const { error: profileError } = await supabase
                 .from('cbn_app_profiles')
                 .update({
-                    display_name: displayName.trim(),
-                    avatar_url: finalAvatarUrl
+                    display_name: nextDisplayName,
+                    avatar_url: avatarUrl,
                 })
                 .eq('id', user.id);
 
-            if (error) throw error;
+            if (profileError) throw profileError;
 
-            await refreshProfile(); // Refresh context
-            showAlert('Success', 'Profile updated successfully.');
+            // Keep auth metadata aligned for any downstream consumers.
+            const { error: authError } = await supabase.auth.updateUser({
+                data: {
+                    display_name: nextDisplayName,
+                    avatar_url: avatarUrl,
+                },
+            });
+
+            if (authError) {
+                console.warn('Failed to update auth metadata', authError);
+            }
+
+            await refreshProfile();
+            Alert.alert('Success', 'Profile updated successfully.');
         } catch (error: any) {
-            showAlert('Error', error.message || 'Failed to update profile');
+            Alert.alert('Error', error?.message || 'Failed to update profile.');
         } finally {
             setLoading(false);
-            setUploading(false);
         }
     };
+
+    const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        displayName || user?.display_name || 'User'
+    )}&background=333333&color=fff`;
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
                 <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Text style={styles.backText}>&lt; Back</Text>
+                    <Text style={styles.backText}>←</Text>
                 </Pressable>
                 <Text style={styles.headerTitle}>Edit Profile</Text>
-                <View style={{ width: 60 }} />
+                <Pressable onPress={() => navigation.navigate('Main', { screen: 'Settings' })} style={styles.settingsButton}>
+                    <SettingsIcon size={20} color="#FFFFFF" strokeWidth={1.8} />
+                </Pressable>
             </View>
 
             <View style={styles.content}>
                 <View style={styles.avatarContainer}>
                     <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
                         <Image
-                            source={{
-                                uri: avatarUrl || 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'
-                            }}
+                            source={{ uri: avatarUrl || fallbackAvatar }}
                             style={styles.avatar}
                         />
-                        <View style={styles.editIconContainer}>
-                            <Text style={styles.editIcon}>📷</Text>
+                        <View style={styles.editBadge}>
+                            <Text style={styles.editBadgeText}>Edit</Text>
                         </View>
                     </TouchableOpacity>
                     <Text style={styles.changePhotoText}>Tap to change photo</Text>
@@ -157,7 +135,7 @@ export const ProfileScreen = () => {
                         value={displayName}
                         onChangeText={setDisplayName}
                         placeholder="Enter display name"
-                        placeholderTextColor={theme.colors.textSecondary}
+                        placeholderTextColor="#666666"
                     />
                 </View>
 
@@ -166,168 +144,127 @@ export const ProfileScreen = () => {
                     onPress={handleUpdate}
                     disabled={loading}
                 >
-                    <Text style={styles.buttonText}>
-                        {loading ? 'Saving...' : 'Save Changes'}
-                    </Text>
-                </TouchableOpacity>
-
-                <View style={styles.divider} />
-
-                <TouchableOpacity
-                    style={styles.logoutButton}
-                    onPress={async () => {
-                        await logout();
-                        // Context update will trigger navigation change automatically
-                    }}
-                >
-                    <Text style={styles.logoutText}>Log Out</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => {
-                        showAlert('Delete Account', 'Please contact an administrator to request account deletion.');
-                    }}
-                >
-                    <Text style={styles.deleteText}>Delete Account</Text>
+                    <Text style={styles.buttonText}>{loading ? 'SAVING...' : 'SAVE CHANGES'}</Text>
                 </TouchableOpacity>
             </View>
         </View>
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.border,
-        backgroundColor: theme.colors.header,
-    },
-    backButton: {
-        padding: 8,
-    },
-    backText: {
-        fontSize: 16,
-        color: theme.colors.primary,
-        fontWeight: '600',
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: theme.colors.text,
-    },
-    content: {
-        padding: 20,
-    },
-    avatarContainer: {
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    avatarWrapper: {
-        position: 'relative',
-        width: 100,
-        height: 100,
-        marginBottom: 8,
-    },
-    avatar: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        borderWidth: 2,
-        borderColor: theme.colors.primary,
-    },
-    editIconContainer: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        backgroundColor: theme.colors.primary,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: theme.colors.background,
-    },
-    editIcon: {
-        fontSize: 16,
-    },
-    changePhotoText: {
-        fontSize: 14,
-        color: theme.colors.primary,
-        fontWeight: '500',
-    },
-    fieldContainer: {
-        marginBottom: 20,
-    },
-    label: {
-        fontSize: 14,
-        color: theme.colors.textSecondary,
-        marginBottom: 8,
-        fontWeight: '500',
-    },
-    input: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        padding: 16,
-        fontSize: 16,
-        color: theme.colors.text,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    disabledInput: {
-        backgroundColor: theme.colors.background,
-        color: theme.colors.textSecondary,
-    },
-    button: {
-        backgroundColor: theme.colors.primary,
-        borderRadius: 12,
-        padding: 16,
-        alignItems: 'center',
-        marginTop: 20,
-    },
-    buttonDisabled: {
-        opacity: 0.6,
-    },
-    buttonText: {
-        color: '#FFFFFF',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-    divider: {
-        height: 1,
-        backgroundColor: theme.colors.border,
-        marginVertical: 24,
-    },
-    logoutButton: {
-        padding: 16,
-        alignItems: 'center',
-        backgroundColor: theme.colors.surface,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        borderRadius: 12,
-        marginBottom: 12,
-    },
-    logoutText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: theme.colors.text,
-    },
-    deleteButton: {
-        padding: 16,
-        alignItems: 'center',
-    },
-    deleteText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#EF4444',
-    },
-});
+const createStyles = () =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: '#000000',
+        },
+        header: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 20,
+            paddingBottom: 20,
+            paddingTop: 10,
+        },
+        backButton: {
+            padding: 8,
+        },
+        settingsButton: {
+            padding: 8,
+        },
+        backText: {
+            fontSize: 24,
+            color: '#FFFFFF',
+            fontFamily: 'Inter',
+        },
+        headerTitle: {
+            fontSize: 16,
+            fontWeight: '600',
+            color: '#FFFFFF',
+            fontFamily: 'Inter',
+        },
+        content: {
+            padding: 24,
+        },
+        avatarContainer: {
+            alignItems: 'center',
+            marginBottom: 32,
+        },
+        avatarWrapper: {
+            position: 'relative',
+            width: 104,
+            height: 104,
+            marginBottom: 12,
+        },
+        avatar: {
+            width: 104,
+            height: 104,
+            borderRadius: 52,
+            backgroundColor: '#333333',
+        },
+        editBadge: {
+            position: 'absolute',
+            bottom: 0,
+            right: 0,
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            borderWidth: 2,
+            borderColor: '#000000',
+        },
+        editBadgeText: {
+            fontSize: 10,
+            fontWeight: '700',
+            color: '#000000',
+            fontFamily: 'Inter',
+            textTransform: 'uppercase',
+        },
+        changePhotoText: {
+            fontSize: 14,
+            color: '#888888',
+            fontFamily: 'Inter',
+        },
+        fieldContainer: {
+            marginBottom: 20,
+        },
+        label: {
+            fontSize: 14,
+            marginBottom: 8,
+            color: '#888888',
+            fontFamily: 'Inter',
+        },
+        input: {
+            backgroundColor: '#111111',
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#333333',
+            height: 56,
+            justifyContent: 'center',
+            paddingHorizontal: 16,
+            color: '#FFFFFF',
+            fontSize: 16,
+            fontFamily: 'Inter',
+        },
+        disabledInput: {
+            opacity: 0.7,
+            color: '#AAAAAA',
+        },
+        button: {
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            height: 56,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginTop: 24,
+        },
+        buttonDisabled: {
+            opacity: 0.7,
+        },
+        buttonText: {
+            color: '#000000',
+            fontSize: 16,
+            fontWeight: 'bold',
+            fontFamily: 'Inter',
+            letterSpacing: 0.5,
+        },
+    });

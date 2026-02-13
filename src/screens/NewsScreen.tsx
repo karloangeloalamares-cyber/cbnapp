@@ -1,19 +1,35 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, FlatList, StyleSheet, Image, Pressable, Linking, RefreshControl, Platform, Alert, Modal, TouchableWithoutFeedback, Share } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useState, useMemo } from 'react';
+import {
+    View,
+    Text,
+    FlatList,
+    StyleSheet,
+    Pressable,
+    RefreshControl,
+    Platform,
+    Alert,
+    Modal,
+    TouchableWithoutFeedback,
+    Share,
+    KeyboardAvoidingView,
+    Keyboard
+} from 'react-native';
 import { newsService } from '../services/newsService';
 import { reactionService } from '../services/reactionService';
 import { postViewsService } from '../services/postViewsService';
+import { savedItemsService } from '../services/savedItemsService';
 import { NewsArticle, ReactionType } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { theme } from '../theme';
-import { MessageBubble } from '../components/MessageBubble';
+import { useTheme } from '../context/ThemeContext';
+import { MessageCard } from '../components/MessageCard';
 import { SelectionHeader } from '../components/SelectionHeader';
+import { FormattingHeader } from '../components/FormattingHeader';
+import { Composer } from '../components/Composer';
 import * as Clipboard from 'expo-clipboard';
 import { downloadAsync, cacheDirectory } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { PostOptionsModal } from '../components/PostOptionsModal';
 
 const getDateKey = (dateString: string): string => {
     const date = new Date(dateString);
@@ -43,10 +59,10 @@ const formatDateLabel = (dateString: string): string => {
     }
 };
 
-const DateSeparator = ({ label }: { label: string }) => (
+const DateSeparator = ({ label, theme, styles }: { label: string; theme: any; styles: any }) => (
     <View style={styles.dateSeparatorContainer}>
-        <View style={styles.dateSeparatorBadge}>
-            <Text style={styles.dateSeparatorText}>{label}</Text>
+        <View style={[styles.dateSeparatorBadge, { backgroundColor: theme.dark ? theme.colors.surface : theme.colors.surface }]}>
+            <Text style={[styles.dateSeparatorText, { color: theme.colors.textSecondary }]}>{label}</Text>
         </View>
     </View>
 );
@@ -77,8 +93,8 @@ type ListItem =
     | { type: 'article'; article: NewsArticle; key: string };
 
 export const NewsScreen = () => {
-    const navigation = useNavigation<any>();
-    const insets = useSafeAreaInsets();
+    const { theme } = useTheme();
+    const themedStyles = useMemo(() => createStyles(theme), [theme]);
 
     // Background Pattern (Placeholder for Doodle)
     // We can use the theme background which is now Beige #EFE7DE
@@ -87,13 +103,35 @@ export const NewsScreen = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [reactionSummary, setReactionSummary] = useState<Record<string, ReactionSummary>>({});
     const [viewSummary, setViewSummary] = useState<Record<string, ViewSummary>>({});
+    const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set());
     const [reactionPickerTargetId, setReactionPickerTargetId] = useState<string | null>(null);
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    const [longPressedItemId, setLongPressedItemId] = useState<string | null>(null);
     const { user } = useAuth();
     const isAdmin = authService.isAdmin(user);
-    const canReact = !!user && !isAdmin;
     const canTrackView = !!user && !isAdmin;
+    const canSave = !!user && !isAdmin;
     const showViewCount = isAdmin;
+
+    // Formatting state
+    const [isFormatting, setIsFormatting] = useState(false);
+    const composerRef = React.useRef<any>(null); // Use ComposerRef type if imported
+
+    // Manual keyboard height tracking for Android (Expo Go doesn't support adjustResize)
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    useEffect(() => {
+        if (Platform.OS !== 'android') return;
+        const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+            setKeyboardHeight(e.endCoordinates.height);
+        });
+        const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+            setKeyboardHeight(0);
+        });
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     const loadNews = async () => {
         const articles = await newsService.getAll();
@@ -105,6 +143,7 @@ export const NewsScreen = () => {
         setNews(articles);
         await loadReactions(articles);
         await loadViews(articles);
+        await loadSavedItems(articles);
     };
 
     useEffect(() => {
@@ -164,6 +203,24 @@ export const NewsScreen = () => {
             setViewSummary(summary);
         } catch (error) {
             console.warn('Failed to load views', error);
+        }
+    };
+
+    const loadSavedItems = async (articles: NewsArticle[]) => {
+        if (!canSave || !user) {
+            setSavedItemIds(new Set());
+            return;
+        }
+
+        try {
+            const saved = await savedItemsService.getForTargets(
+                user.id,
+                'news',
+                articles.map((item) => item.id)
+            );
+            setSavedItemIds(new Set(saved.map((item) => item.target_id)));
+        } catch (error) {
+            console.warn('Failed to load saved items', error);
         }
     };
 
@@ -302,10 +359,39 @@ export const NewsScreen = () => {
         // Maybe we just don't do anything on press?
     };
 
-    const openReactionPicker = (targetId: string) => {
-        if (selectedItems.size > 0) return;
-        if (!canReact) return;
-        setReactionPickerTargetId(targetId);
+    const handleToggleSaved = async (targetId: string) => {
+        if (!canSave || !user) return;
+
+        const isSaved = savedItemIds.has(targetId);
+        setSavedItemIds((prev) => {
+            const next = new Set(prev);
+            if (isSaved) {
+                next.delete(targetId);
+            } else {
+                next.add(targetId);
+            }
+            return next;
+        });
+
+        try {
+            if (isSaved) {
+                await savedItemsService.remove('news', targetId, user.id);
+            } else {
+                await savedItemsService.add('news', targetId, user.id);
+            }
+        } catch (error) {
+            console.error('Failed to toggle save:', error);
+            setSavedItemIds((prev) => {
+                const next = new Set(prev);
+                if (isSaved) {
+                    next.add(targetId);
+                } else {
+                    next.delete(targetId);
+                }
+                return next;
+            });
+            Alert.alert('Error', 'Failed to update saved items.');
+        }
     };
 
     const closeReactionPicker = () => {
@@ -314,32 +400,6 @@ export const NewsScreen = () => {
 
     const listData = useMemo<ListItem[]>(() => {
         const result: ListItem[] = [];
-        let lastDateKey = '';
-
-        // For inverted list, we want the "latest" at the bottom.
-        // The `news` array is sorted by DESC (latest first).
-        // FlatList inverted renders index 0 at the BOTTOM. 
-        // So passing `news` directly to inverted list will put the LATEST item at the BOTTOM. Correct.
-        // However, we need to insert Date Headers.
-        // In an inverted list, headers appear "above" the items they precede in the source array?
-        // No, visual top is end of list. 
-        // Let's iterate normally through the sorted (DESC) array.
-        // Today, Yesterday, etc.
-        // [Latest Post (Today), ..., Oldest Post (Last Week)]
-        // Rendered Inverted: Oldest ... Latest.
-
-        // Date headers need to be inserted.
-        // If we have [Post A (Today), Post B (Today), Post C (Yesterday)]
-        // Inverted Rendering (Visual Bottom to Top):
-        // Post A
-        // Post B
-        // Date Header (Today)
-        // Post C
-        // Date Header (Yesterday)
-
-        // So we iterate through `news` and when date changes, we insert a header AFTER the group?
-        // Actually, let's keep it simple.
-
         const sortedNews = [...news]; // Latest first
 
         for (let i = 0; i < sortedNews.length; i++) {
@@ -365,19 +425,57 @@ export const NewsScreen = () => {
             }
         }
 
-        return result;
+        // Since we are NOT inverted, we want headers to appear BEFORE the items of that day.
+        // But the loop above pushes item THEN header? 
+        // If sortedNews is [Latest, ..., Oldest] (Desc)
+        // We iterate: Item 1 (Today) -> Push Item -> Next is Today -> Continue
+        // Item 2 (Today) -> Push Item -> Next is Yesterday -> Push Header (Today)?? NO.
+
+        // Standard List (Top to Bottom):
+        // Date Header (Today)
+        // Item 1
+        // Item 2
+        // Date Header (Yesterday)
+        // Item 3
+
+        // We need to group by Date.
+        // Let's rewrite the loop to insert headers correctly for standard list.
+
+        const finalResult: ListItem[] = [];
+        let currentDateGroup = '';
+
+        for (const article of sortedNews) {
+            const dateLabel = formatDateLabel(article.created_at);
+            if (dateLabel !== currentDateGroup) {
+                currentDateGroup = dateLabel;
+                finalResult.push({
+                    type: 'date',
+                    label: dateLabel,
+                    key: `date-${getDateKey(article.created_at)}`
+                });
+            }
+            finalResult.push({
+                type: 'article',
+                article,
+                key: article.id
+            });
+        }
+
+        return finalResult;
     }, [news]);
 
     const renderItem = ({ item }: { item: ListItem }) => {
         if (item.type === 'date') {
-            return <DateSeparator label={item.label} />;
+            return <DateSeparator label={item.label} theme={theme} styles={themedStyles} />;
         }
 
         const reactionData = reactionSummary[item.article.id];
         const reactionContent = (
-            <View style={styles.bubbleReactions}>
+            <View style={themedStyles.bubbleReactions}>
                 {REACTIONS.filter((r) => (reactionData?.counts?.[r.key] || 0) > 0).map((r) => (
-                    <Text key={r.key} style={styles.reactionEmojiSmall}>{r.emoji} <Text style={styles.reactionCountText}>{reactionData?.counts?.[r.key]}</Text></Text>
+                    <Text key={r.key} style={themedStyles.reactionEmojiSmall}>
+                        {r.emoji} <Text style={themedStyles.reactionCountText}>{reactionData?.counts?.[r.key]}</Text>
+                    </Text>
                 ))}
             </View>
         );
@@ -385,32 +483,33 @@ export const NewsScreen = () => {
         const isSelected = selectedItems.has(item.article.id);
 
         return (
-            <MessageBubble
+            <MessageCard
                 content={item.article.content || ''}
                 image_url={item.article.image_url}
                 link_url={item.article.link_url}
+                link_text={item.article.link_text}
                 created_at={item.article.created_at}
-                author_name={item.article.author_name || 'Admin'}
-                isAdmin={true} // All news are admin posts
+                author_name={item.article.author_name || 'CBN admin'}
                 showViewCount={showViewCount}
                 viewCount={viewSummary[item.article.id]?.count || 0}
                 reactions={reactionContent}
-                selected={isSelected}
-                onLongPress={() => toggleSelection(item.article.id)}
+                isSelected={isSelected}
+                isSaved={savedItemIds.has(item.article.id)}
+                showSaveButton={canSave && selectedItems.size === 0}
+                onToggleSave={() => handleToggleSaved(item.article.id)}
+                onLongPress={() => setLongPressedItemId(item.article.id)}
                 onPress={() => handleOpenDetail(item.article)}
             />
         );
     };
 
-    const handleForward = async () => {
-        const selectedArticles = news.filter((item) => selectedItems.has(item.id));
-
+    const performForward = async (articles: NewsArticle[]) => {
         // For a single item with an image, share the image file + text
-        if (selectedArticles.length === 1 && selectedArticles[0].image_url) {
-            const article = selectedArticles[0];
+        if (articles.length === 1 && articles[0].image_url) {
+            const article = articles[0];
             try {
                 const localFile = `${cacheDirectory}share_${article.id}.jpg`;
-                const { uri } = await downloadAsync(article.image_url, localFile);
+                const { uri } = await downloadAsync(article.image_url!, localFile);
 
                 if (await Sharing.isAvailableAsync()) {
                     // Copy caption to clipboard so user can paste it after sharing the image
@@ -438,7 +537,7 @@ export const NewsScreen = () => {
         }
 
         // Text-only share (multiple items or no image)
-        const textToShare = selectedArticles.map((item) => {
+        const textToShare = articles.map((item) => {
             const parts: string[] = [];
             if (item.content) parts.push(item.content);
             if (item.image_url) parts.push(item.image_url);
@@ -454,33 +553,105 @@ export const NewsScreen = () => {
         }
     };
 
+    const handleForward = async () => {
+        const selectedArticles = news.filter((item) => selectedItems.has(item.id));
+        await performForward(selectedArticles);
+    };
+
     return (
-        <View style={styles.container}>
-            <View style={styles.wallpaper} />
-            {selectedItems.size > 0 && (
-                <SelectionHeader
-                    selectedCount={selectedItems.size}
-                    onClearSelection={clearSelection}
-                    onDelete={handleDelete}
-                    onCopy={handleCopy}
-                    onForward={handleForward}
-                />
-            )}
-            <FlatList
-                data={listData}
-                keyExtractor={(item) => item.key}
-                renderItem={renderItem}
-                contentContainerStyle={[styles.listContent, { paddingTop: insets.bottom + 80 }]}
-                inverted
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={theme.colors.primary}
+        <View style={[themedStyles.container, { backgroundColor: theme.colors.background }]}>
+            <View style={[themedStyles.wallpaper, { backgroundColor: theme.colors.background, opacity: theme.dark ? 0.3 : 0.06 }]} />
+
+            <KeyboardAvoidingView
+                style={[
+                    { flex: 1 },
+                    Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
+                ]}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+            >
+                {/* Text Formatting Header */}
+                {isFormatting && (
+                    <FormattingHeader
+                        onFormat={(marker) => composerRef.current?.applyFormat(marker)}
+                        onClear={() => {
+                            // Ideally clear selection in composer, but we can't force it easily without another ref method.
+                            // For now just hide the header. The user can tap elsewhere to clear selection.
+                            // Actually, let's just ignore the "back" for now or make it dismiss keyboard?
+                            Keyboard.dismiss();
+                        }}
                     />
-                }
-            />
+                )}
+
+                {/* Message Selection Header */}
+                {selectedItems.size > 0 && !isFormatting && (
+                    <SelectionHeader
+                        selectedCount={selectedItems.size}
+                        onClearSelection={clearSelection}
+                        onDelete={handleDelete}
+                        onCopy={handleCopy}
+                        onForward={handleForward}
+                    // Explicitly NO Reply button as requested
+                    />
+                )}
+
+                <FlatList
+                    data={listData}
+                    keyExtractor={(item) => item.key}
+                    renderItem={renderItem}
+                    contentContainerStyle={[themedStyles.listContent, { paddingBottom: 100 }]}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor={theme.colors.primary}
+                        />
+                    }
+                />
+
+                {/* Admin Composer */}
+                {isAdmin && (
+                    <Composer
+                        ref={composerRef}
+                        type="news"
+                        onSelectionChange={(sel) => {
+                            setIsFormatting(sel.start !== sel.end);
+                        }}
+                        onSend={async (text, imageUri) => {
+                            // Optimistic Update
+                            const tempId = Math.random().toString();
+                            const newArticle: NewsArticle = {
+                                id: tempId,
+                                headline: '',
+                                content: text,
+                                image_url: imageUri || undefined,
+                                author_id: user!.id,
+                                author_name: user!.display_name,
+                                created_at: new Date().toISOString(),
+                            };
+
+                            setNews(prev => [newArticle, ...prev]);
+
+                            try {
+                                const created = await newsService.create(
+                                    '',
+                                    text,
+                                    user!.id,
+                                    user!.display_name,
+                                    imageUri || undefined
+                                );
+                                // Replace temp with real
+                                setNews(prev => prev.map(a => a.id === tempId ? created : a));
+                            } catch (error) {
+                                console.error('Failed to post news:', error);
+                                Alert.alert('Error', 'Failed to post news.');
+                                setNews(prev => prev.filter(a => a.id !== tempId));
+                            }
+                        }}
+                    />
+                )}
+            </KeyboardAvoidingView>
 
             <Modal
                 visible={!!reactionPickerTargetId}
@@ -489,14 +660,14 @@ export const NewsScreen = () => {
                 onRequestClose={closeReactionPicker}
             >
                 <TouchableWithoutFeedback onPress={closeReactionPicker}>
-                    <View style={styles.reactionPickerOverlay}>
+                    <View style={themedStyles.reactionPickerOverlay}>
                         <TouchableWithoutFeedback>
-                            <View style={styles.reactionPickerCard}>
-                                <View style={styles.reactionPickerRow}>
+                            <View style={[themedStyles.reactionPickerCard, { backgroundColor: theme.colors.surface }]}>
+                                <View style={themedStyles.reactionPickerRow}>
                                     {REACTIONS.map((reaction) => (
                                         <Pressable
                                             key={reaction.key}
-                                            style={styles.reactionPickerButton}
+                                            style={themedStyles.reactionPickerButton}
                                             onPress={() => {
                                                 if (reactionPickerTargetId) {
                                                     handleReact(reactionPickerTargetId, reaction.key);
@@ -504,7 +675,7 @@ export const NewsScreen = () => {
                                                 closeReactionPicker();
                                             }}
                                         >
-                                            <Text style={styles.reactionPickerEmoji}>{reaction.emoji}</Text>
+                                            <Text style={themedStyles.reactionPickerEmoji}>{reaction.emoji}</Text>
                                         </Pressable>
                                     ))}
                                 </View>
@@ -513,20 +684,50 @@ export const NewsScreen = () => {
                     </View>
                 </TouchableWithoutFeedback>
             </Modal>
+
+            <PostOptionsModal
+                visible={!!longPressedItemId}
+                onClose={() => setLongPressedItemId(null)}
+                onSave={async () => {
+                    if (longPressedItemId) {
+                        await handleToggleSaved(longPressedItemId);
+                        setLongPressedItemId(null);
+                    }
+                }}
+                onForward={() => {
+                    const item = news.find(n => n.id === longPressedItemId);
+                    if (item) {
+                        performForward([item]);
+                        setLongPressedItemId(null);
+                    }
+                }}
+                onCopy={async () => {
+                    const article = news.find(n => n.id === longPressedItemId);
+                    if (article) {
+                        const parts: string[] = [];
+                        if (article.content) parts.push(article.content);
+                        if (article.image_url) parts.push(article.image_url);
+                        if (article.link_url) parts.push(article.link_url);
+                        await Clipboard.setStringAsync(parts.join('\n'));
+                        Alert.alert('Copied', 'Message copied to clipboard');
+                    }
+                    setLongPressedItemId(null);
+                }}
+                isSaved={longPressedItemId ? savedItemIds.has(longPressedItemId) : false}
+            />
         </View>
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#EFE7DE', // WhatsApp-like background
+        backgroundColor: theme.colors.background,
     },
     wallpaper: {
         ...StyleSheet.absoluteFillObject,
         opacity: 0.06,
-        backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', // Placeholder pattern if web, won't work in RN native directly without ImageBackground but good enough for now
-        backgroundColor: '#E5DDD5',
+        backgroundColor: theme.colors.background,
     },
     listContent: {
         paddingVertical: 10,
@@ -538,7 +739,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     dateSeparatorBadge: {
-        backgroundColor: '#E1F2FB',
+        backgroundColor: theme.dark ? theme.colors.surface : `${theme.colors.primary}1A`,
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,
@@ -549,8 +750,9 @@ const styles = StyleSheet.create({
     },
     dateSeparatorText: {
         fontSize: 12,
-        color: '#555',
+        color: theme.colors.textSecondary,
         fontWeight: '500',
+        fontFamily: 'Inter',
     },
     bubbleReactions: {
         flexDirection: 'row',
@@ -562,7 +764,7 @@ const styles = StyleSheet.create({
     },
     reactionCountText: {
         fontSize: 10,
-        color: '#777',
+        color: theme.colors.textSecondary,
     },
     reactionPickerOverlay: {
         flex: 1,
@@ -571,7 +773,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     reactionPickerCard: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surface,
         borderRadius: 24,
         paddingVertical: 12,
         paddingHorizontal: 16,

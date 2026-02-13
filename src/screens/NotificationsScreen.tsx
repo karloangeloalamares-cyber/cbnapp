@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, Pressable, RefreshControl, Alert } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// safe area handled by Header in MainNavigator tab wrapper
 import { useNavigation } from '@react-navigation/native';
 import { notificationService } from '../services/notificationService';
 import { newsService } from '../services/newsService';
@@ -10,7 +10,9 @@ import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 import { AppNotification } from '../types';
-import { theme } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import { AnnouncementIcon, NewsIcon } from '../components/Icons';
+
 
 const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -31,10 +33,18 @@ const mapNotification = (item: any): AppNotification => ({
     target_id: item.target_id.toString(),
 });
 
+const withAlpha = (hex: string, alphaHex: string) => {
+    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+        return `${hex}${alphaHex}`;
+    }
+    return hex;
+};
+
 export const NotificationsScreen = () => {
-    const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const { user } = useAuth();
+    const { theme } = useTheme();
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const isAdmin = authService.isAdmin(user);
     const canTrackView = !!user && !isAdmin;
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -155,12 +165,25 @@ export const NotificationsScreen = () => {
 
     const renderItem = ({ item }: { item: AppNotification }) => {
         const isUnread = !item.read_at;
+        const isNews = item.target_type === 'news';
+        const badgeLabel = isNews ? 'News' : 'Announcement';
+        const iconColor = isUnread ? theme.colors.primary : theme.colors.textSecondary;
         return (
             <Pressable style={[styles.card, isUnread && styles.cardUnread]} onPress={() => handleOpenNotification(item)}>
-                <View style={styles.cardHeader}>
-                    <Text style={[styles.title, isUnread && styles.titleUnread]}>{item.title}</Text>
+                <View style={styles.cardTopRow}>
+                    <View style={styles.iconWrap}>
+                        {isNews ? (
+                            <NewsIcon size={18} color={iconColor} strokeWidth={1.8} />
+                        ) : (
+                            <AnnouncementIcon size={18} color={iconColor} strokeWidth={1.8} />
+                        )}
+                    </View>
+                    <View style={styles.badgeWrap}>
+                        <Text style={styles.badgeText}>{badgeLabel}</Text>
+                    </View>
                     {isUnread && <View style={styles.unreadDot} />}
                 </View>
+                <Text style={[styles.title, isUnread && styles.titleUnread]} numberOfLines={2}>{item.title}</Text>
                 <Text style={styles.body} numberOfLines={2}>{item.body}</Text>
                 <Text style={styles.date}>{formatDateTime(item.created_at)}</Text>
             </Pressable>
@@ -176,106 +199,125 @@ export const NotificationsScreen = () => {
     }
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            <View style={styles.header}>
-                <Pressable onPress={() => navigation.goBack()}>
-                    <Text style={styles.backText}>&lt; Back</Text>
-                </Pressable>
-                <Text style={styles.headerTitle}>Notifications</Text>
-                <View style={{ width: 60 }} />
+        <View style={styles.container}>
+            <View style={{ flex: 1 }}>
+                <FlatList
+                    data={notifications}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderItem}
+                    contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
+                    ListEmptyComponent={<Text style={styles.emptyText}>No notifications yet.</Text>}
+                />
             </View>
-
-            <FlatList
-                data={notifications}
-                keyExtractor={(item) => item.id}
-                renderItem={renderItem}
-                contentContainerStyle={[styles.list, { paddingBottom: Math.max(insets.bottom, 40) }]}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
-                ListEmptyComponent={<Text style={styles.emptyText}>No notifications yet.</Text>}
-            />
         </View>
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: theme.colors.header,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.border,
-    },
-    backText: {
-        color: theme.colors.primary,
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: theme.colors.text,
-    },
-    list: {
-        padding: 16,
-        paddingBottom: 40,
-    },
-    card: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        padding: 14,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    cardUnread: {
-        borderColor: theme.colors.primary,
-        backgroundColor: '#F0F7FA',
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    title: {
-        fontSize: 16,
-        color: theme.colors.text,
-        fontWeight: '600',
-    },
-    titleUnread: {
-        color: theme.colors.primary,
-    },
-    body: {
-        marginTop: 6,
-        fontSize: 14,
-        color: theme.colors.textSecondary,
-    },
-    date: {
-        marginTop: 8,
-        fontSize: 12,
-        color: theme.colors.textSecondary,
-    },
-    unreadDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: theme.colors.primary,
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-    },
-    emptyText: {
-        textAlign: 'center',
-        color: theme.colors.textSecondary,
-        fontSize: 16,
-    },
-});
+const createStyles = (theme: any) => {
+    const unreadBg = withAlpha(theme.colors.primary, theme.dark ? '1F' : '12');
+    const unreadBorder = withAlpha(theme.colors.primary, '66');
+    const badgeBg = withAlpha(theme.colors.primary, theme.dark ? '33' : '1A');
+
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: theme.colors.background,
+        },
+        list: {
+            padding: 16,
+            paddingBottom: 20,
+            flexGrow: 1,
+        },
+        card: {
+            backgroundColor: theme.colors.surface,
+            borderRadius: 12,
+            padding: 14,
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+        },
+        cardUnread: {
+            borderColor: unreadBorder,
+            backgroundColor: unreadBg,
+        },
+        cardTopRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 8,
+        },
+        iconWrap: {
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.colors.cardBackground || theme.colors.surface,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: theme.colors.border,
+        },
+        badgeWrap: {
+            borderRadius: 999,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            backgroundColor: badgeBg,
+        },
+        badgeText: {
+            fontSize: 11,
+            color: theme.colors.primary,
+            fontWeight: '600',
+            fontFamily: 'Inter',
+        },
+        title: {
+            fontSize: 16,
+            color: theme.colors.text,
+            fontWeight: '600',
+            fontFamily: 'Inter',
+            lineHeight: 21,
+        },
+        titleUnread: {
+            color: theme.colors.primary,
+        },
+        body: {
+            marginTop: 6,
+            fontSize: 14,
+            color: theme.colors.textSecondary,
+            fontFamily: 'Inter',
+            lineHeight: 20,
+        },
+        date: {
+            marginTop: 10,
+            fontSize: 12,
+            color: theme.colors.textSecondary,
+            fontFamily: 'Inter',
+            alignSelf: 'flex-end',
+        },
+        unreadDot: {
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: theme.colors.primary,
+            marginLeft: 'auto',
+        },
+        emptyContainer: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+            backgroundColor: theme.colors.background,
+        },
+        emptyText: {
+            textAlign: 'center',
+            color: theme.colors.textSecondary,
+            fontSize: 16,
+            fontFamily: 'Inter',
+            lineHeight: 22,
+        },
+        navigationContainer: {
+            paddingHorizontal: 16,
+            paddingTop: 8,
+            backgroundColor: theme.colors.background,
+        },
+    });
+};
