@@ -1,36 +1,41 @@
 import React, { useState, useRef, forwardRef } from 'react';
 import { View, TextInput, StyleSheet, Pressable, Text, Image, ActivityIndicator, Platform, NativeSyntheticEvent, TextInputSelectionChangeEventData } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 
 export interface ComposerRef {
     applyFormat: (marker: string) => void;
 }
 
+export type PostType = 'news' | 'announcement';
+
 interface ComposerProps {
-    onSend: (text: string, imageUri: string | null) => Promise<void>;
-    type: 'news' | 'announcement';
+    onSend: (text: string, imageUri: string | null, postType: PostType) => Promise<void>;
     placeholder?: string;
     onSelectionChange?: (selection: { start: number; end: number }) => void;
 }
 
-export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, type, placeholder, onSelectionChange }, ref) => {
+export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, placeholder, onSelectionChange }, ref) => {
     const [text, setText] = useState('');
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
     const [inputHeight, setInputHeight] = useState(40);
     const [selection, setSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
+    const [showTypePicker, setShowTypePicker] = useState(false);
     const inputRef = useRef<TextInput>(null);
     const { theme } = useTheme();
+    const insets = useSafeAreaInsets();
 
-    const isNews = type === 'news';
+    const hasContent = text.trim() || imageUri;
 
-    const handleSend = async () => {
-        if (!text.trim() && !imageUri) return;
+    const handleSend = async (postType: PostType) => {
+        if (!hasContent) return;
 
+        setShowTypePicker(false);
         setSending(true);
         try {
-            await onSend(text.trim(), imageUri);
+            await onSend(text.trim(), imageUri, postType);
             setText('');
             setImageUri(null);
             setInputHeight(40);
@@ -39,6 +44,11 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, type, 
         } finally {
             setSending(false);
         }
+    };
+
+    const handleSendPress = () => {
+        if (!hasContent) return;
+        setShowTypePicker(prev => !prev);
     };
 
     const pickImage = async () => {
@@ -65,7 +75,6 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, type, 
         const end = Math.max(selection.start, selection.end);
         const selected = text.slice(start, end);
 
-        // Check if already wrapped with this marker — toggle off
         const before = text.slice(0, start);
         const after = text.slice(end);
         const alreadyWrapped =
@@ -75,20 +84,17 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, type, 
         let newCursorEnd: number;
 
         if (alreadyWrapped) {
-            // Remove markers
             newText =
                 before.slice(0, -marker.length) +
                 selected +
                 after.slice(marker.length);
             newCursorEnd = start - marker.length + selected.length;
         } else {
-            // Add markers
             newText = before + marker + selected + marker + after;
             newCursorEnd = start + marker.length + selected.length;
         }
 
         setText(newText);
-        // Move cursor to end of formatted text
         const newStart = alreadyWrapped ? start - marker.length : start + marker.length;
         setTimeout(() => {
             setSelection({ start: newStart, end: newCursorEnd });
@@ -108,7 +114,25 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, type, 
     }));
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+            {/* Post Type Picker */}
+            {showTypePicker && (
+                <View style={[styles.typePickerContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                    <Pressable
+                        style={[styles.typeOption, { backgroundColor: theme.colors.primary }]}
+                        onPress={() => handleSend('news')}
+                    >
+                        <Text style={styles.typeOptionText}>Post as News</Text>
+                    </Pressable>
+                    <Pressable
+                        style={[styles.typeOption, { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.primary }]}
+                        onPress={() => handleSend('announcement')}
+                    >
+                        <Text style={[styles.typeOptionText, { color: theme.colors.primary }]}>Post as Announcement</Text>
+                    </Pressable>
+                </View>
+            )}
+
             {/* Image Preview */}
             {imageUri && (
                 <View style={[styles.imagePreviewContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
@@ -123,11 +147,9 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, type, 
             )}
 
             <View style={styles.inputContainer}>
-                {isNews && (
-                    <Pressable style={[styles.attachButton, { backgroundColor: theme.colors.surface }]} onPress={pickImage}>
-                        <Text style={styles.attachIcon}>📷</Text>
-                    </Pressable>
-                )}
+                <Pressable style={[styles.attachButton, { backgroundColor: theme.colors.surface }]} onPress={pickImage}>
+                    <Text style={styles.attachIcon}>📷</Text>
+                </Pressable>
 
                 <TextInput
                     ref={inputRef}
@@ -141,8 +163,11 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, type, 
                         }
                     ]}
                     value={text}
-                    onChangeText={setText}
-                    placeholder={placeholder || (isNews ? "Type a news update..." : "Type an announcement...")}
+                    onChangeText={(t) => {
+                        setText(t);
+                        if (showTypePicker) setShowTypePicker(false);
+                    }}
+                    placeholder={placeholder || "Type a news update..."}
                     placeholderTextColor={theme.colors.textSecondary}
                     multiline
                     onContentSizeChange={(e) => setInputHeight(e.nativeEvent.contentSize.height)}
@@ -151,9 +176,9 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, type, 
                 />
 
                 <Pressable
-                    style={[styles.sendButton, { backgroundColor: theme.colors.primary }, (!text.trim() && !imageUri) && { opacity: 0.5 }]}
-                    onPress={handleSend}
-                    disabled={sending || (!text.trim() && !imageUri)}
+                    style={[styles.sendButton, { backgroundColor: theme.colors.primary }, !hasContent && { opacity: 0.5 }]}
+                    onPress={handleSendPress}
+                    disabled={sending || !hasContent}
                 >
                     {sending ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
@@ -169,8 +194,28 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, type, 
 const styles = StyleSheet.create({
     container: {
         paddingHorizontal: 8,
-        paddingVertical: 8,
+        paddingTop: 8,
         backgroundColor: 'transparent',
+    },
+    typePickerContainer: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 8,
+        padding: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    typeOption: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 20,
+        alignItems: 'center',
+    },
+    typeOptionText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        fontFamily: 'Inter',
     },
     inputContainer: {
         flexDirection: 'row',

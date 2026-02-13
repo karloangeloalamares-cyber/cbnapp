@@ -181,10 +181,8 @@ export const SavedScreen = () => {
                     link_url={item.article.link_url}
                     link_text={item.article.link_text}
                     created_at={item.article.created_at}
-                    author_name={item.article.author_name || 'CBN admin'}
-                    isSaved
-                    showSaveButton
-                    onToggleSave={() => handleUnsave(item)}
+                    author_name={item.article.author_name || 'CBN Admin'}
+
                     onPress={() => handleOpenItem(item)}
                 />
             );
@@ -197,9 +195,7 @@ export const SavedScreen = () => {
                 created_at={item.announcement.created_at}
                 author_name={item.announcement.author_name || 'Announcement'}
                 variant="announcement"
-                isSaved
-                showSaveButton
-                onToggleSave={() => handleUnsave(item)}
+
                 onPress={() => handleOpenItem(item)}
             />
         );

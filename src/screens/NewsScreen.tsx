@@ -12,9 +12,11 @@ import {
     TouchableWithoutFeedback,
     Share,
     KeyboardAvoidingView,
-    Keyboard
+    Keyboard,
+    TextInput
 } from 'react-native';
 import { newsService } from '../services/newsService';
+import { announcementService } from '../services/announcementService';
 import { reactionService } from '../services/reactionService';
 import { postViewsService } from '../services/postViewsService';
 import { savedItemsService } from '../services/savedItemsService';
@@ -25,7 +27,7 @@ import { useTheme } from '../context/ThemeContext';
 import { MessageCard } from '../components/MessageCard';
 import { SelectionHeader } from '../components/SelectionHeader';
 import { FormattingHeader } from '../components/FormattingHeader';
-import { Composer } from '../components/Composer';
+import { Composer, PostType } from '../components/Composer';
 import * as Clipboard from 'expo-clipboard';
 import { downloadAsync, cacheDirectory } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -107,6 +109,8 @@ export const NewsScreen = () => {
     const [reactionPickerTargetId, setReactionPickerTargetId] = useState<string | null>(null);
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [longPressedItemId, setLongPressedItemId] = useState<string | null>(null);
+    const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
+    const [editText, setEditText] = useState('');
     const { user } = useAuth();
     const isAdmin = authService.isAdmin(user);
     const canTrackView = !!user && !isAdmin;
@@ -338,6 +342,57 @@ export const NewsScreen = () => {
         );
     };
 
+    const handleSingleDelete = (id: string) => {
+        Alert.alert(
+            'Delete Post',
+            'Are you sure you want to delete this post?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setNews(prev => prev.filter(item => item.id !== id));
+                        try {
+                            await newsService.delete(id);
+                        } catch (error) {
+                            console.error('Failed to delete:', error);
+                            Alert.alert('Error', 'Failed to delete post.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleEditStart = (article: NewsArticle) => {
+        setEditingArticle(article);
+        setEditText(article.content);
+    };
+
+    const handleEditSave = async () => {
+        if (!editingArticle) return;
+        const trimmed = editText.trim();
+        if (!trimmed) return;
+
+        // Optimistic update
+        setNews(prev => prev.map(item =>
+            item.id === editingArticle.id ? { ...item, content: trimmed } : item
+        ));
+        setEditingArticle(null);
+
+        try {
+            await newsService.update(editingArticle.id, trimmed);
+        } catch (error) {
+            console.error('Failed to update:', error);
+            Alert.alert('Error', 'Failed to update post.');
+            // Revert
+            setNews(prev => prev.map(item =>
+                item.id === editingArticle.id ? { ...item, content: editingArticle.content } : item
+            ));
+        }
+    };
+
     const handleOpenDetail = async (article: NewsArticle) => {
         if (selectedItems.size > 0) {
             toggleSelection(article.id);
@@ -489,14 +544,12 @@ export const NewsScreen = () => {
                 link_url={item.article.link_url}
                 link_text={item.article.link_text}
                 created_at={item.article.created_at}
-                author_name={item.article.author_name || 'CBN admin'}
+                author_name={item.article.author_name || 'CBN Admin'}
                 showViewCount={showViewCount}
                 viewCount={viewSummary[item.article.id]?.count || 0}
                 reactions={reactionContent}
                 isSelected={isSelected}
-                isSaved={savedItemIds.has(item.article.id)}
-                showSaveButton={canSave && selectedItems.size === 0}
-                onToggleSave={() => handleToggleSaved(item.article.id)}
+
                 onLongPress={() => setLongPressedItemId(item.article.id)}
                 onPress={() => handleOpenDetail(item.article)}
             />
@@ -614,12 +667,28 @@ export const NewsScreen = () => {
                 {isAdmin && (
                     <Composer
                         ref={composerRef}
-                        type="news"
                         onSelectionChange={(sel) => {
                             setIsFormatting(sel.start !== sel.end);
                         }}
-                        onSend={async (text, imageUri) => {
-                            // Optimistic Update
+                        onSend={async (text, imageUri, postType: PostType) => {
+                            if (postType === 'announcement') {
+                                // Post as announcement
+                                try {
+                                    await announcementService.create(
+                                        '',
+                                        text,
+                                        user!.id,
+                                        user!.display_name
+                                    );
+                                    Alert.alert('Success', 'Announcement posted.');
+                                } catch (error) {
+                                    console.error('Failed to post announcement:', error);
+                                    Alert.alert('Error', 'Failed to post announcement.');
+                                }
+                                return;
+                            }
+
+                            // Post as news (optimistic update)
                             const tempId = Math.random().toString();
                             const newArticle: NewsArticle = {
                                 id: tempId,
@@ -641,7 +710,6 @@ export const NewsScreen = () => {
                                     user!.display_name,
                                     imageUri || undefined
                                 );
-                                // Replace temp with real
                                 setNews(prev => prev.map(a => a.id === tempId ? created : a));
                             } catch (error) {
                                 console.error('Failed to post news:', error);
@@ -713,8 +781,67 @@ export const NewsScreen = () => {
                     }
                     setLongPressedItemId(null);
                 }}
+                onEdit={() => {
+                    const article = news.find(n => n.id === longPressedItemId);
+                    if (article) {
+                        handleEditStart(article);
+                    }
+                    setLongPressedItemId(null);
+                }}
+                onDelete={() => {
+                    if (longPressedItemId) {
+                        handleSingleDelete(longPressedItemId);
+                    }
+                    setLongPressedItemId(null);
+                }}
                 isSaved={longPressedItemId ? savedItemIds.has(longPressedItemId) : false}
+                isAdmin={isAdmin}
             />
+
+            {/* Edit Modal */}
+            <Modal
+                visible={!!editingArticle}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setEditingArticle(null)}
+            >
+                <TouchableWithoutFeedback onPress={() => setEditingArticle(null)}>
+                    <View style={themedStyles.editOverlay}>
+                        <TouchableWithoutFeedback>
+                            <View style={[themedStyles.editContainer, { backgroundColor: theme.colors.surface }]}>
+                                <Text style={[themedStyles.editTitle, { color: theme.colors.text }]}>Edit Post</Text>
+                                <TextInput
+                                    style={[themedStyles.editInput, {
+                                        backgroundColor: theme.colors.inputBackground,
+                                        color: theme.colors.text,
+                                        borderColor: theme.colors.border,
+                                    }]}
+                                    value={editText}
+                                    onChangeText={setEditText}
+                                    multiline
+                                    autoFocus
+                                    placeholder="Edit your post..."
+                                    placeholderTextColor={theme.colors.textSecondary}
+                                />
+                                <View style={themedStyles.editButtons}>
+                                    <Pressable
+                                        style={[themedStyles.editButton, { backgroundColor: theme.colors.border }]}
+                                        onPress={() => setEditingArticle(null)}
+                                    >
+                                        <Text style={[themedStyles.editButtonText, { color: theme.colors.text }]}>Cancel</Text>
+                                    </Pressable>
+                                    <Pressable
+                                        style={[themedStyles.editButton, { backgroundColor: theme.colors.primary }]}
+                                        onPress={handleEditSave}
+                                    >
+                                        <Text style={[themedStyles.editButtonText, { color: '#FFFFFF' }]}>Save</Text>
+                                    </Pressable>
+                                </View>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </View>
     );
 };
@@ -793,5 +920,49 @@ const createStyles = (theme: any) => StyleSheet.create({
     },
     reactionPickerEmoji: {
         fontSize: 24,
+    },
+    editOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    editContainer: {
+        width: '100%',
+        borderRadius: 16,
+        padding: 20,
+    },
+    editTitle: {
+        fontSize: 18,
+        fontWeight: '700' as '700',
+        fontFamily: 'Inter',
+        marginBottom: 12,
+    },
+    editInput: {
+        borderRadius: 12,
+        borderWidth: 1,
+        padding: 12,
+        fontSize: 16,
+        fontFamily: 'Inter',
+        minHeight: 100,
+        maxHeight: 200,
+        textAlignVertical: 'top',
+    },
+    editButtons: {
+        flexDirection: 'row' as 'row',
+        gap: 10,
+        marginTop: 12,
+    },
+    editButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 10,
+        alignItems: 'center' as 'center',
+    },
+    editButtonText: {
+        fontSize: 16,
+        fontWeight: '600' as '600',
+        fontFamily: 'Inter',
     },
 });

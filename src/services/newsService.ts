@@ -117,6 +117,15 @@ export const newsService = {
             author_name: authorName // We might want to join profiles to get this, but for now pass it through
         } as NewsArticle;
     },
+    update: async (id: string, content: string): Promise<void> => {
+        const { error } = await supabase
+            .from('cbn_app_news')
+            .update({ content })
+            .eq('id', id);
+
+        if (error) throw error;
+    },
+
     delete: async (id: string): Promise<void> => {
         const { error } = await supabase
             .from('cbn_app_news')

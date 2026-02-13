@@ -33,25 +33,24 @@ export const NewsIcon = ({ size = 24, color = '#8696A0', strokeWidth = 2 }: Icon
 export const AnnouncementIcon = ({ size = 24, color = '#8696A0', strokeWidth = 2 }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
-      d="M11 5L6 9H2v6h4l5 4V5z"
+      d="M11.5 5.5L7 9.5H4.5C3.67157 9.5 3 10.1716 3 11V13C3 13.8284 3.67157 14.5 4.5 14.5H7L11.5 18.5V5.5Z"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
     <Path
-      d="M19.07 4.93a10 10 0 0 1 0 14.14"
+      d="M7 14.5V17.5C7 18.3284 7.67157 19 8.5 19C9.32843 19 10 18.3284 10 17.5V16"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
     <Path
-      d="M15.54 8.46a5 5 0 0 1 0 7.07"
+      d="M15 8C16.1046 8 17 9.79086 17 12C17 14.2091 16.1046 16 15 16"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
-      strokeLinejoin="round"
     />
   </Svg>
 );
@@ -272,5 +271,78 @@ export const CopyIcon = ({ size = 24, color = '#8696A0', strokeWidth = 2 }: Icon
       strokeLinecap="round"
       strokeLinejoin="round"
     />
+  </Svg>
+);
+
+// Filter/Menu Icon (3 lines of decreasing width)
+// Used beside the avatar in MessageCard header
+export const FilterIcon = ({ size = 24, color = '#8696A0', strokeWidth = 1.5 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M2.63849 4.75H21.1385"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+    />
+    <Path
+      d="M5.63849 12H18.1385"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+    />
+    <Path
+      d="M8.63849 19.25H15.1385"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+/**
+ * Edit/Pencil Icon
+ * Used for editing posts in admin options
+ */
+export const EditIcon = ({ size = 24, color = '#8696A0', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+/**
+ * Delete/Trash Icon
+ * Used for deleting posts in admin options
+ */
+export const DeleteIcon = ({ size = 24, color = '#8696A0', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 6h18"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Line x1="10" y1="11" x2="10" y2="17" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    <Line x1="14" y1="11" x2="14" y2="17" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
   </Svg>
 );

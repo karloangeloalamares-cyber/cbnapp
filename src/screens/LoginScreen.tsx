@@ -14,15 +14,20 @@ export const LoginScreen = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [error, setError] = useState('');
 
     const styles = React.useMemo(() => createStyles(theme), [theme]);
 
     const handleLogin = async () => {
+        setError('');
         if (!email.trim() || !password.trim()) {
-            alert('Please enter both email and password');
+            setError('Please enter both email and password');
             return;
         }
-        await login(email.trim(), password.trim());
+        const result = await login(email.trim(), password.trim());
+        if (!result.success && result.error) {
+            setError(result.error);
+        }
     };
 
     return (
@@ -55,7 +60,10 @@ export const LoginScreen = () => {
                         <TextInput
                             style={styles.input}
                             value={email}
-                            onChangeText={setEmail}
+                            onChangeText={(text) => {
+                                setEmail(text);
+                                setError('');
+                            }}
                             placeholder="Email"
                             placeholderTextColor="#666666"
                             keyboardType="email-address"
@@ -67,7 +75,10 @@ export const LoginScreen = () => {
                         <TextInput
                             style={styles.input}
                             value={password}
-                            onChangeText={setPassword}
+                            onChangeText={(text) => {
+                                setPassword(text);
+                                setError('');
+                            }}
                             placeholder="Password"
                             placeholderTextColor="#666666"
                             secureTextEntry={!showPassword}
@@ -77,6 +88,8 @@ export const LoginScreen = () => {
                             <Text style={{ color: '#666', fontSize: 18 }}>👁️</Text>
                         </Pressable>
                     </View>
+
+                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                     <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
                         <Text style={styles.forgotPassword}>Forgot password?</Text>
@@ -98,7 +111,13 @@ export const LoginScreen = () => {
 
                     <TouchableOpacity
                         style={styles.googleButton}
-                        onPress={googleLogin}
+                        onPress={async () => {
+                            setError('');
+                            const result = await googleLogin();
+                            if (!result.success && result.error) {
+                                setError(result.error);
+                            }
+                        }}
                     >
                         <GoogleIcon size={20} />
                         <Text style={styles.googleButtonText}>Sign in with Google</Text>
@@ -228,5 +247,12 @@ const createStyles = (theme: any) =>
             fontWeight: '600',
             fontFamily: 'Roboto',
             marginLeft: 12,
+        },
+        errorText: {
+            color: '#FF4444',
+            fontSize: 14,
+            fontFamily: 'Inter',
+            textAlign: 'center',
+            marginBottom: 12,
         },
     });

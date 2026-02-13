@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SavedIcon, ForwardIcon, CopyIcon } from './Icons';
+import { SavedIcon, ForwardIcon, CopyIcon, EditIcon, DeleteIcon } from './Icons';
 
 interface PostOptionsModalProps {
     visible: boolean;
@@ -9,7 +8,10 @@ interface PostOptionsModalProps {
     onSave: () => void;
     onForward: () => void;
     onCopy: () => void;
+    onEdit?: () => void;
+    onDelete?: () => void;
     isSaved?: boolean;
+    isAdmin?: boolean;
 }
 
 export const PostOptionsModal = ({
@@ -18,10 +20,11 @@ export const PostOptionsModal = ({
     onSave,
     onForward,
     onCopy,
+    onEdit,
+    onDelete,
     isSaved = false,
+    isAdmin = false,
 }: PostOptionsModalProps) => {
-    const insets = useSafeAreaInsets();
-
     if (!visible) return null;
 
     return (
@@ -34,21 +37,41 @@ export const PostOptionsModal = ({
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={styles.overlay}>
                     <TouchableWithoutFeedback>
-                        <View style={[styles.menuContainer, { paddingBottom: insets.bottom + 20 }]}>
+                        <View style={styles.menuContainer}>
                             <TouchableOpacity style={styles.menuItem} onPress={onSave}>
                                 <Text style={styles.menuText}>{isSaved ? 'Unsave' : 'Save'}</Text>
-                                <SavedIcon size={24} color="#FFFFFF" />
+                                <SavedIcon size={20} color="#FFFFFF" />
                             </TouchableOpacity>
+
+                            <View style={styles.divider} />
 
                             <TouchableOpacity style={styles.menuItem} onPress={onForward}>
                                 <Text style={styles.menuText}>Forward</Text>
-                                <ForwardIcon size={24} color="#FFFFFF" />
+                                <ForwardIcon size={20} color="#FFFFFF" />
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={[styles.menuItem, styles.lastItem]} onPress={onCopy}>
+                            <View style={styles.divider} />
+
+                            <TouchableOpacity style={styles.menuItem} onPress={onCopy}>
                                 <Text style={styles.menuText}>Copy</Text>
-                                <CopyIcon size={24} color="#FFFFFF" />
+                                <CopyIcon size={20} color="#FFFFFF" />
                             </TouchableOpacity>
+
+                            {isAdmin && (
+                                <>
+                                    <View style={styles.divider} />
+                                    <TouchableOpacity style={styles.menuItem} onPress={onEdit}>
+                                        <Text style={styles.menuText}>Edit</Text>
+                                        <EditIcon size={20} color="#FFFFFF" />
+                                    </TouchableOpacity>
+
+                                    <View style={styles.divider} />
+                                    <TouchableOpacity style={styles.menuItem} onPress={onDelete}>
+                                        <Text style={[styles.menuText, { color: '#EF4444' }]}>Delete</Text>
+                                        <DeleteIcon size={20} color="#EF4444" />
+                                    </TouchableOpacity>
+                                </>
+                            )}
                         </View>
                     </TouchableWithoutFeedback>
                 </View>
@@ -61,21 +84,15 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        justifyContent: 'flex-end',
-        alignItems: 'flex-end',
-        paddingRight: 16,
-        paddingBottom: 80, // Adjust based on where you want it to appear
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     menuContainer: {
-        backgroundColor: '#1E1E1E',
-        borderRadius: 16,
-        width: 200,
-        paddingVertical: 8,
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
+        backgroundColor: '#242626',
+        borderRadius: 10,
+        width: 175,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 4.65,
         elevation: 8,
@@ -84,13 +101,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 12,
+        height: 52,
         paddingHorizontal: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#333333',
     },
-    lastItem: {
-        borderBottomWidth: 0,
+    divider: {
+        height: 1,
+        backgroundColor: '#2F2F2F',
+        marginHorizontal: 10,
     },
     menuText: {
         color: '#FFFFFF',

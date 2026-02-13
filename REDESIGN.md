@@ -80,7 +80,7 @@ interface MessageCardProps {
   link_url?: string | null;                  // Optional link
   link_text?: string;                        // Link label (default: "Link to CBN UNFILTERED")
   created_at: string;                        // Timestamp
-  author_name?: string;                      // Display name (default: "CBN admin")
+  author_name?: string;                      // Display name (default: "CBN Admin")
   reactions?: React.ReactNode;               // Reaction indicators
   onLongPress?: () => void;                  // Long press handler
   onPress?: () => void;                      // Tap handler
@@ -99,7 +99,7 @@ interface MessageCardProps {
   link_url="https://chat.whatsapp.com/JJe2fBqAa5G9T0QHIiBTGy"
   link_text="CBN UNFILTERED"
   created_at={new Date().toISOString()}
-  author_name="CBN admin"
+  author_name="CBN Admin"
   variant="default"
   onPress={() => navigation.navigate('NewsDetail')}
 />

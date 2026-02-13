@@ -148,6 +148,9 @@ export const MainNavigator = () => {
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
             <Tab.Navigator
                 tabBar={(props) => {
+                    // Hide navbar for admin users
+                    if (isAdmin) return null;
+
                     // Map route names to keys
                     const routeName = props.state.routes[props.state.index].name;
                     let activeKey: any = 'home';
@@ -165,12 +168,10 @@ export const MainNavigator = () => {
                             right: 0,
                             paddingBottom: Math.max(insets.bottom, 8),
                             backgroundColor: 'transparent',
-                            // Add some pointer events logic if needed, but standard View is fine
                         }}>
                             <NavigationBar
                                 activeItem={activeKey}
                                 onItemPress={(key) => {
-                                    // Navigate based on key
                                     if (key === 'home') props.navigation.navigate('Home');
                                     if (key === 'announcements') props.navigation.navigate('Announcements');
                                     if (key === 'notifications') props.navigation.navigate('Notifications');

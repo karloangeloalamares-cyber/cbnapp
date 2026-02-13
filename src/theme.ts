@@ -3,21 +3,21 @@ export type ThemeType = typeof lightTheme;
 export const lightTheme = {
     dark: false,
     colors: {
-        background: '#F5F5F5', // Light background
-        header: '#FFFFFF', // White header
+        background: '#F2F1F6', // Light gray background (from Figma)
+        header: '#F2F1F6', // Matching header background (from Figma)
         surface: '#FFFFFF', // White surface
-        primary: '#20B65E', // CBN Green (from Figma links)
-        secondary: '#6B7280',
-        text: '#000000', // Black text
-        textSecondary: '#666666', // Gray text
+        primary: '#ED1D26', // CBN Red
+        secondary: '#8E8E93', // Gray secondary (from Figma)
+        text: '#000000', // Black text (from Figma)
+        textSecondary: '#8E8E93', // Gray text (from Figma)
         border: '#E5E7EB',
         inputBackground: '#FFFFFF',
         messageSent: '#E7FFDB',
         messageReceived: '#FFFFFF',
-        fab: '#20B65E', // Green FAB
+        fab: '#ED1D26', // Red FAB
         icon: '#54656F',
-        unreadBadge: '#20B65E',
-        blueTick: '#20B65E',
+        unreadBadge: '#ED1D26',
+        blueTick: '#ED1D26',
         danger: '#DC2626',
         cardBackground: '#FFFFFF', // White card for light mode
     },
@@ -36,17 +36,17 @@ export const lightTheme = {
         header: { fontSize: 22, fontWeight: 'bold' as 'bold' },
         subHeader: { fontSize: 16, fontWeight: '600' as '600' },
         body: { fontSize: 16 },
-        caption: { fontSize: 14, color: '#6B7280' },
+        caption: { fontSize: 14, color: '#8E8E93' },
     }
 };
 
 export const darkTheme = {
     dark: true,
     colors: {
-        background: '#0B141A', // CBN Dark Background (from Figma)
-        header: '#0B141A', // Dark header
+        background: '#000000', // Pure black background
+        header: '#000000', // Pure black header
         surface: '#1C1C1E', // Dark surface/cards (from Figma)
-        primary: '#20B65E', // CBN Green (from Figma links)
+        primary: '#ED1D26', // CBN Red
         secondary: '#8696A0',
         text: '#FFFFFF', // White text (from Figma)
         textSecondary: '#BDBDBD', // Light gray text (from Figma)
@@ -54,10 +54,10 @@ export const darkTheme = {
         inputBackground: '#2A3942',
         messageSent: '#005C4B',
         messageReceived: '#1C1C1E', // Dark gray for received (Figma card color)
-        fab: '#20B65E', // Green FAB matching primary
+        fab: '#ED1D26', // Red FAB matching primary
         icon: '#8696A0', // Gray icons
-        unreadBadge: '#20B65E',
-        blueTick: '#20B65E',
+        unreadBadge: '#ED1D26',
+        blueTick: '#ED1D26',
         danger: '#EF4444',
         cardBackground: '#1C1C1E', // Dark card background (from Figma)
     },

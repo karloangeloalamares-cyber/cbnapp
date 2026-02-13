@@ -397,9 +397,7 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                 viewCount={viewSummary[item.id]?.count || 0}
                 reactions={reactionContent}
                 isSelected={isSelected}
-                isSaved={savedItemIds.has(item.id)}
-                showSaveButton={canSave && selectedItems.size === 0}
-                onToggleSave={() => handleToggleSaved(item.id)}
+
                 onLongPress={() => setLongPressedItemId(item.id)}
                 onPress={() => handleOpenAnnouncement(item)}
             />
@@ -482,11 +480,11 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                 {isAdmin && (
                     <Composer
                         ref={composerRef}
-                        type="announcement"
+                        placeholder="Type an announcement..."
                         onSelectionChange={(sel) => {
                             setIsFormatting(sel.start !== sel.end);
                         }}
-                        onSend={async (text, _) => {
+                        onSend={async (text, _, _postType) => {
                             const content = text.trim();
 
                             // Optimistic Update
@@ -509,7 +507,6 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                                     user!.id,
                                     user!.display_name
                                 );
-                                // Replace temp with real
                                 setAnnouncements(prev => prev.map(a => a.id === tempId ? created : a));
                             } catch (error) {
                                 console.error('Failed to post announcement:', error);

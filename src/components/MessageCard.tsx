@@ -1,4 +1,4 @@
-import React from 'react';
+
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { FormattedText } from './FormattedText';
-import { SavedIcon } from './Icons';
+import { FilterIcon } from './Icons';
+import { LinkPreview } from './LinkPreview';
 
 interface MessageCardProps {
   title?: string;
@@ -26,9 +27,6 @@ interface MessageCardProps {
   showViewCount?: boolean;
   variant?: 'default' | 'announcement' | 'sponsored';
   isSelected?: boolean;
-  isSaved?: boolean;
-  showSaveButton?: boolean;
-  onToggleSave?: () => void;
 }
 
 const formatTime = (dateString: string): string => {
@@ -47,7 +45,7 @@ export const MessageCard = ({
   link_url,
   link_text = 'CBN UNFILTERED',
   created_at,
-  author_name = 'CBN admin',
+  author_name = 'CBN Admin',
   reactions,
   onLongPress,
   onPress,
@@ -55,9 +53,6 @@ export const MessageCard = ({
   showViewCount,
   variant = 'default',
   isSelected = false,
-  isSaved = false,
-  showSaveButton = false,
-  onToggleSave,
 }: MessageCardProps) => {
   const { theme } = useTheme();
 
@@ -87,7 +82,7 @@ export const MessageCard = ({
       borderColor: isSelected ? theme.colors.primary : 'transparent',
     },
     contentContainer: {
-      padding: 16,
+      paddingTop: 0,
     },
     headerContainer: {
       flexDirection: 'row',
@@ -123,17 +118,7 @@ export const MessageCard = ({
       color: '#FFFFFF',
       fontFamily: 'Inter',
     },
-    saveButton: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: isSaved ? theme.colors.primary + '1A' : 'transparent',
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: isSaved ? theme.colors.primary : theme.colors.border,
-      marginLeft: 8,
-    },
+
     textContent: {
       ...theme.typography.postTextRegular,
       color: textColor,
@@ -143,7 +128,7 @@ export const MessageCard = ({
     },
     imageContainer: {
       width: '100%',
-      height: 239,
+      height: 208,
       borderRadius: 10,
       overflow: 'hidden',
       marginTop: 4,
@@ -155,8 +140,7 @@ export const MessageCard = ({
     },
     linkContainer: {
       paddingHorizontal: 10,
-      paddingVertical: 10,
-      marginVertical: 4,
+      marginBottom: 4,
     },
     linkTitle: {
       ...theme.typography.postTextBold,
@@ -165,7 +149,7 @@ export const MessageCard = ({
     },
     linkUrl: {
       ...theme.typography.postLink,
-      color: theme.colors.primary,
+      color: '#20B65E',
       textDecorationLine: 'underline',
     },
     footerRow: {
@@ -220,7 +204,6 @@ export const MessageCard = ({
       onLongPress={onLongPress}
       style={[
         styles.container,
-        isAnnouncement && { borderLeftWidth: 3, borderLeftColor: theme.colors.primary },
         isSponsored && { borderColor: theme.colors.primary, borderWidth: 1 },
         isSelected && { opacity: 0.9 },
       ]}
@@ -240,29 +223,13 @@ export const MessageCard = ({
               <Text style={styles.sponsoredText}>Sponsored Post</Text>
             </View>
           )}
-          {showSaveButton && (
-            <Pressable
-              style={styles.saveButton}
-              onPress={(event) => {
-                event.stopPropagation?.();
-                onToggleSave?.();
-              }}
-            >
-              <SavedIcon
-                size={16}
-                color={isSaved ? theme.colors.primary : secondaryTextColor}
-                strokeWidth={1.8}
-              />
-            </Pressable>
-          )}
+
         </View>
 
         {isAnnouncement ? (
           renderAnnouncement()
         ) : (
           <>
-            <FormattedText text={content} style={styles.textContent} />
-
             {image_url && (
               <View style={styles.imageContainer}>
                 <Image
@@ -272,9 +239,11 @@ export const MessageCard = ({
               </View>
             )}
 
+            <FormattedText text={content} style={styles.textContent} />
+
             {link_url && (
               <View style={styles.linkContainer}>
-                <Text style={styles.linkTitle}>Link to {link_text}</Text>
+                <Text style={styles.linkTitle}>{link_text}</Text>
                 <Pressable onPress={handleLinkPress}>
                   <Text style={styles.linkUrl}>{link_url}</Text>
                 </Pressable>

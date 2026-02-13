@@ -6,11 +6,11 @@ import { supabase } from '../services/supabaseClient';
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    login: (email: string, password?: string) => Promise<boolean>;
-    signUp: (email: string, password: string, displayName: string) => Promise<boolean>;
+    login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+    signUp: (email: string, password: string, displayName: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => Promise<void>;
     refreshProfile: () => Promise<void>;
-    googleLogin: () => Promise<boolean>;
+    googleLogin: () => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -92,32 +92,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, []);
 
-    const login = async (email: string, password?: string): Promise<boolean> => {
+    const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
         setLoading(true);
         const { user: u, error } = await authService.login(email, password);
         setLoading(false);
         if (u) {
             setUser(u);
-            return true;
+            return { success: true };
         } else {
-            alert(error || 'Login failed');
-            return false;
+            return { success: false, error: error || 'Login failed' };
         }
     };
 
-    const signUp = async (email: string, password: string, displayName: string) => {
+    const signUp = async (email: string, password: string, displayName: string): Promise<{ success: boolean; error?: string }> => {
         setLoading(true);
         const { user: u, error } = await authService.signUp(email, password, displayName);
         setLoading(false);
         if (error) {
-            alert(error);
-            return false;
+            return { success: false, error };
         }
         if (u) {
             setUser(u);
-            return true;
+            return { success: true };
         }
-        return false;
+        return { success: false, error: 'Unknown registration error' };
     };
 
     const logout = async () => {
@@ -132,26 +130,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const googleLogin = async () => {
+    const googleLogin = async (): Promise<{ success: boolean; error?: string }> => {
         setLoading(true);
         try {
             const { signInWithGoogle } = await import('../utils/AuthUtils');
             const { user: u, error } = await signInWithGoogle();
             if (u) {
                 setUser(u);
-                return true;
+                return { success: true };
             }
             if (error) {
                 console.error('Google login error:', error);
-                // alert(error); // Optional: don't alert cancellation
-                return false;
+                return { success: false, error };
             }
         } catch (e) {
             console.error('Google login exception:', e);
+            return { success: false, error: 'An unexpected error occurred' };
         } finally {
             setLoading(false);
         }
-        return false;
+        return { success: false };
     };
 
     return (

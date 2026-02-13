@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Switch, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Switch, ScrollView, Pressable, Image } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { LogoutIcon, MoonIcon } from '../components/Icons';
@@ -16,11 +16,12 @@ export const SettingsScreen = () => {
                 <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 100 }]}>
                     <View style={styles.section}>
                         <View style={styles.profileRow}>
-                            <View style={styles.avatarPlaceholder}>
-                                <Text style={styles.avatarText}>
-                                    {(user?.display_name || 'U').charAt(0).toUpperCase()}
-                                </Text>
-                            </View>
+                            <Image
+                                source={{
+                                    uri: user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.display_name || 'User')}&background=333333&color=fff`
+                                }}
+                                style={styles.avatarPlaceholder}
+                            />
                             <View style={styles.profileInfo}>
                                 <Text style={styles.profileName}>{user?.display_name || 'User'}</Text>
                                 <Text style={styles.profileEmail}>{user?.email || ''}</Text>

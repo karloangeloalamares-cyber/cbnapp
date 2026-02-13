@@ -61,7 +61,7 @@ export const SelectionHeader = ({
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#20B65E', // Overridden dynamically with theme.colors.primary
+        backgroundColor: '#ED1D26', // Overridden dynamically with theme.colors.primary
         width: '100%',
         position: 'absolute',
         top: 0,

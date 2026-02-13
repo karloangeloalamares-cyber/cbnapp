@@ -1,11 +1,12 @@
 import React from 'react';
-import { Text, StyleSheet, Platform, TextStyle, StyleProp } from 'react-native';
+import { Text, StyleSheet, Platform, TextStyle, StyleProp, View } from 'react-native';
 
 type SegmentStyle = 'bold' | 'italic' | 'strike' | 'underline' | 'mono';
 
 type Segment = {
     text: string;
     style?: SegmentStyle;
+    isUrl?: boolean;
 };
 
 const MARKERS: { marker: string; style: SegmentStyle }[] = [
@@ -17,8 +18,11 @@ const MARKERS: { marker: string; style: SegmentStyle }[] = [
     { marker: '`', style: 'mono' },
 ];
 
+import { LinkPreview } from './LinkPreview';
+
 const parseFormattedText = (input: string): Segment[] => {
-    const segments: Segment[] = [];
+    // First pass: Handle formatting markers
+    let segments: Segment[] = [];
     let i = 0;
 
     while (i < input.length) {
@@ -59,10 +63,35 @@ const parseFormattedText = (input: string): Segment[] => {
         i = contentEnd + nextMarker.length;
     }
 
-    return segments;
+    // Second pass: Handle URLs in text segments
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const finalSegments: Segment[] = [];
+
+    segments.forEach(segment => {
+        if (segment.style || !segment.text) {
+            finalSegments.push(segment);
+            return;
+        }
+
+        const parts = segment.text.split(urlRegex);
+        parts.forEach(part => {
+            if (part.match(urlRegex)) {
+                finalSegments.push({ text: part, isUrl: true });
+            } else if (part) {
+                finalSegments.push({ text: part });
+            }
+        });
+    });
+
+    return finalSegments;
 };
 
 const styles = StyleSheet.create({
+    container: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+    },
     bold: { fontWeight: '700' },
     italic: { fontStyle: 'italic' },
     strike: { textDecorationLine: 'line-through' },
@@ -72,18 +101,36 @@ const styles = StyleSheet.create({
 
 export const FormattedText = ({ text, style }: { text: string; style?: StyleProp<TextStyle> }) => {
     const segments = parseFormattedText(text || '');
+
+    // flattenedStyle to extract text-specific props if needed, 
+    // but for now we'll pass full style to Text children and assume View ignores them or handles layout.
+    // However, to avoid double padding if 'style' has padding, we should ideally separate them.
+    // For this implementation, we apply 'style' to the container View to handle margins/padding/alignment
+    // and also to Text to handle color/font. 
+    // NOTE: This might cause double padding if padding is in 'style'. 
+    // Ideally the parent should split styles.
+
     return (
-        <Text style={style}>
+        <View style={[styles.container, style]}>
             {segments.map((segment, idx) => {
-                if (!segment.style) {
-                    return <Text key={idx}>{segment.text}</Text>;
+                if (segment.isUrl) {
+                    return <LinkPreview key={idx} url={segment.text} />;
                 }
+
+                // We pass 'style' to Text to inherit font/color. 
+                // We explicitly reset padding/margin on Text to avoid doubling up from the parent style
+                const textStyles = [
+                    style,
+                    segment.style && styles[segment.style],
+                    { margin: 0, padding: 0, marginTop: 0, marginBottom: 0, marginHorizontal: 0, paddingHorizontal: 0 }
+                ];
+
                 return (
-                    <Text key={idx} style={styles[segment.style]}>
+                    <Text key={idx} style={textStyles}>
                         {segment.text}
                     </Text>
                 );
             })}
-        </Text>
+        </View>
     );
 };

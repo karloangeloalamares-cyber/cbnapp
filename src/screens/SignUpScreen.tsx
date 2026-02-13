@@ -16,34 +16,29 @@ export const SignUpScreen = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [error, setError] = useState('');
 
     const styles = React.useMemo(() => createStyles(theme), [theme]);
 
-    const showAlert = (title: string, msg: string, onOk?: () => void) => {
-        if (Platform.OS === 'web') {
-            const alertFn = (globalThis as any)?.alert as ((message: string) => void) | undefined;
-            if (alertFn) alertFn(msg);
-            onOk?.();
-            return;
-        }
-        Alert.alert(title, msg, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
-    };
-
     const handleSignUp = async () => {
+        setError('');
         if (!displayName.trim() || !email.trim() || !password.trim()) {
-            showAlert('Missing info', 'Please fill all fields.');
+            setError('Please fill all fields.');
             return;
         }
         if (password.length < 6) {
-            showAlert('Weak Password', 'Password should be at least 6 characters.');
+            setError('Password should be at least 6 characters.');
             return;
         }
         if (password !== confirmPassword) {
-            showAlert('Passwords do not match', 'Please re-enter your password.');
+            setError('Passwords do not match.');
             return;
         }
 
-        await signUp(email.trim(), password, displayName.trim());
+        const result = await signUp(email.trim(), password, displayName.trim());
+        if (!result.success && result.error) {
+            setError(result.error);
+        }
     };
 
     return (
@@ -76,7 +71,10 @@ export const SignUpScreen = () => {
                         <TextInput
                             style={styles.input}
                             value={displayName}
-                            onChangeText={setDisplayName}
+                            onChangeText={(text) => {
+                                setDisplayName(text);
+                                setError('');
+                            }}
                             placeholder="Full Name"
                             placeholderTextColor="#666666"
                             autoCapitalize="words"
@@ -87,7 +85,10 @@ export const SignUpScreen = () => {
                         <TextInput
                             style={styles.input}
                             value={email}
-                            onChangeText={setEmail}
+                            onChangeText={(text) => {
+                                setEmail(text);
+                                setError('');
+                            }}
                             placeholder="Email"
                             placeholderTextColor="#666666"
                             keyboardType="email-address"
@@ -99,7 +100,10 @@ export const SignUpScreen = () => {
                         <TextInput
                             style={styles.input}
                             value={password}
-                            onChangeText={setPassword}
+                            onChangeText={(text) => {
+                                setPassword(text);
+                                setError('');
+                            }}
                             placeholder="Password"
                             placeholderTextColor="#666666"
                             secureTextEntry={!showPassword}
@@ -114,12 +118,17 @@ export const SignUpScreen = () => {
                         <TextInput
                             style={styles.input}
                             value={confirmPassword}
-                            onChangeText={setConfirmPassword}
+                            onChangeText={(text) => {
+                                setConfirmPassword(text);
+                                setError('');
+                            }}
                             placeholder="Confirm Password"
                             placeholderTextColor="#666666"
                             secureTextEntry
                         />
                     </View>
+
+                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                     <TouchableOpacity
                         style={[styles.createButton, loading && { opacity: 0.7 }]}
@@ -137,7 +146,13 @@ export const SignUpScreen = () => {
 
                     <TouchableOpacity
                         style={styles.googleButton}
-                        onPress={googleLogin}
+                        onPress={async () => {
+                            setError('');
+                            const result = await googleLogin();
+                            if (!result.success && result.error) {
+                                setError(result.error);
+                            }
+                        }}
                     >
                         <GoogleIcon size={20} />
                         <Text style={styles.googleButtonText}>Sign up with Google</Text>
@@ -262,5 +277,12 @@ const createStyles = (theme: any) =>
             fontWeight: '600',
             fontFamily: 'Roboto',
             marginLeft: 12,
+        },
+        errorText: {
+            color: '#FF4444',
+            fontSize: 14,
+            fontFamily: 'Inter',
+            textAlign: 'center',
+            marginBottom: 12,
         },
     });

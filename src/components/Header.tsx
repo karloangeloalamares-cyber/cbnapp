@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
+import { FilterIcon } from './Icons';
 
 interface HeaderProps {
   title?: string;
@@ -41,6 +42,11 @@ export const Header = ({
       alignItems: 'center',
       flex: 1,
     },
+    rightSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
     logo: {
       width: 31,
       height: 29,
@@ -71,11 +77,14 @@ export const Header = ({
         />
         <Text style={styles.titleText}>{title}</Text>
       </View>
-      {avatar && (
-        <Pressable onPress={onAvatarPress}>
-          <Image source={{ uri: avatar }} style={styles.profileAvatar} />
-        </Pressable>
-      )}
+      <View style={styles.rightSection}>
+        <FilterIcon size={20} color={textColor} />
+        {avatar && (
+          <Pressable onPress={onAvatarPress}>
+            <Image source={{ uri: avatar }} style={styles.profileAvatar} />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 };

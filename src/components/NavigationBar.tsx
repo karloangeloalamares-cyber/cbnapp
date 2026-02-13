@@ -61,7 +61,7 @@ export const NavigationBar = ({ activeItem, onItemPress, unreadCount = 0 }: Navi
       name: 'Announcements',
       route: 'Announcements',
       icon: (color: string) => (
-        <AnnouncementIcon size={22} color={color} strokeWidth={1.5} />
+        <AnnouncementIcon size={28} color={color} strokeWidth={1.5} />
       ),
     },
     {
@@ -122,21 +122,19 @@ export const NavigationBar = ({ activeItem, onItemPress, unreadCount = 0 }: Navi
       paddingHorizontal: 20,
       paddingVertical: 14,
       borderRadius: 100,
-      backgroundColor: theme.dark
-        ? 'rgba(28, 28, 30, 0.5)' // Dark mode: Semi-transparent dark
-        : 'rgba(229, 231, 235, 0.5)', // Light mode: Semi-transparent light
+      backgroundColor: 'rgba(0, 0, 0, 0.2)', // Semi-transparent black (from Figma)
       overflow: 'hidden', // Required for BlurView radius
       width: '100%',
     },
     navItem: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
+      width: 50,
+      height: 50,
+      borderRadius: 25,
       justifyContent: 'center',
       alignItems: 'center',
     },
     activeItem: {
-      backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', // Subtle highlight
+      backgroundColor: '#ED1D26', // Red active circle (from Figma)
     },
     badge: {
       position: 'absolute',
@@ -169,7 +167,7 @@ export const NavigationBar = ({ activeItem, onItemPress, unreadCount = 0 }: Navi
       >
         {navItems.map((item) => {
           const active = isActive(item);
-          const iconColor = active ? theme.colors.primary : (theme.dark ? '#8696A0' : '#4B5563');
+          const iconColor = '#FFFFFF'; // All icons white (from Figma)
 
           return (
             <Pressable
