@@ -54,47 +54,52 @@ export const newsService = {
         authorId: string,
         authorName: string,
         imageUrl?: string,
+        videoUrl?: string,
         linkUrl?: string,
         linkText?: string
     ): Promise<NewsArticle> => {
-        // Upload image if it's a local URI
+        // Upload media if it's a local URI
         let finalImageUrl = imageUrl;
+        let finalVideoUrl = videoUrl;
 
-        // Simple check if it's a local file (starts with file:// or content://)
-        // In a real app, we'd upload this to Supabase Storage here.
-        // For this demo step, we'll skip the upload implementation logic 
-        // and just store the string if it's remote, or null if local (to prevent broken links)
-        // unless we implement the upload.
+        const uploadMedia = async (uri: string) => {
+            if (!uri.startsWith('file://') && !uri.startsWith('content://')) return uri;
 
-        // IMPLEMENTING UPLOAD:
-        if (imageUrl && (imageUrl.startsWith('file://') || imageUrl.startsWith('content://'))) {
             try {
-                // 1. Read file (Expo FileSystem needed, or just FormData)
                 const formData = new FormData();
-                const filename = imageUrl.split('/').pop() || `upload-${Date.now()}.jpg`;
-                const ext = filename.split('.').pop();
+                const filename = uri.split('/').pop() || `upload-${Date.now()}`;
+                const ext = filename.split('.').pop()?.toLowerCase() || '';
                 const path = `${Date.now()}.${ext}`;
 
+                let contentType = 'application/octet-stream';
+                if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) {
+                    contentType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+                } else if (['mp4', 'mov', 'm4v'].includes(ext)) {
+                    contentType = `video/${ext === 'mov' ? 'quicktime' : (ext === 'm4v' ? 'x-m4v' : ext)}`;
+                }
+
                 formData.append('file', {
-                    uri: imageUrl,
+                    uri,
                     name: filename,
-                    type: `image/${ext === 'jpg' ? 'jpeg' : ext}`
+                    type: contentType
                 } as any);
 
                 const { data, error } = await supabase.storage
                     .from('cbn_app_media')
-                    .upload(path, formData, { contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}` });
+                    .upload(path, formData, { contentType });
 
                 if (!error && data) {
-                    const publicUrl = supabase.storage.from('cbn_app_media').getPublicUrl(path).data.publicUrl;
-                    finalImageUrl = publicUrl;
+                    return supabase.storage.from('cbn_app_media').getPublicUrl(path).data.publicUrl;
                 }
+                if (error) console.error('Upload error', error);
             } catch (e) {
                 console.error('Upload failed', e);
-                // Fallback: don't save image if upload fails
-                finalImageUrl = undefined;
             }
-        }
+            return undefined;
+        };
+
+        if (imageUrl) finalImageUrl = await uploadMedia(imageUrl);
+        if (videoUrl) finalVideoUrl = await uploadMedia(videoUrl);
 
         const { data, error } = await supabase
             .from('cbn_app_news')
@@ -102,6 +107,7 @@ export const newsService = {
                 headline,
                 content,
                 image_url: finalImageUrl,
+                video_url: finalVideoUrl,
                 link_url: linkUrl,
                 link_text: linkText,
                 author_id: authorId

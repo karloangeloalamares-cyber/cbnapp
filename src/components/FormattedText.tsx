@@ -91,6 +91,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         alignItems: 'center',
+        width: '100%',
     },
     bold: { fontWeight: '700' },
     italic: { fontStyle: 'italic' },
@@ -111,19 +112,23 @@ export const FormattedText = ({ text, style }: { text: string; style?: StyleProp
     // Ideally the parent should split styles.
 
     return (
-        <View style={[styles.container, style]}>
+        <Text style={style}>
             {segments.map((segment, idx) => {
-                if (segment.isUrl) {
-                    return <LinkPreview key={idx} url={segment.text} />;
-                }
-
-                // We pass 'style' to Text to inherit font/color. 
-                // We explicitly reset padding/margin on Text to avoid doubling up from the parent style
                 const textStyles = [
-                    style,
                     segment.style && styles[segment.style],
-                    { margin: 0, padding: 0, marginTop: 0, marginBottom: 0, marginHorizontal: 0, paddingHorizontal: 0 }
                 ];
+
+                if (segment.isUrl) {
+                    return (
+                        <Text
+                            key={idx}
+                            style={[...textStyles, { color: '#20B65E', textDecorationLine: 'underline' }]}
+                            onPress={() => Linking.openURL(segment.text)}
+                        >
+                            {segment.text}
+                        </Text>
+                    );
+                }
 
                 return (
                     <Text key={idx} style={textStyles}>
@@ -131,6 +136,6 @@ export const FormattedText = ({ text, style }: { text: string; style?: StyleProp
                     </Text>
                 );
             })}
-        </View>
+        </Text>
     );
 };

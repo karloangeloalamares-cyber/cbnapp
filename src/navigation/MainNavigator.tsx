@@ -15,6 +15,7 @@ import { MessageBoardScreen } from '../screens/MessageBoardScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { SavedScreen } from '../screens/SavedScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { StatsScreen } from '../screens/StatsScreen';
 import { Header } from '../components/Header';
 import { NavigationBar } from '../components/NavigationBar';
 
@@ -93,6 +94,20 @@ const SettingsTab = ({ navigation }: any) => {
     );
 };
 
+const StatsTab = ({ navigation }: any) => {
+    const { user } = useAuth();
+    return (
+        <View style={{ flex: 1 }}>
+            <Header
+                title="Stats"
+                avatar={user?.avatar_url || fallbackAvatar(user?.display_name)}
+                onAvatarPress={() => navigation.navigate('Profile')}
+            />
+            <StatsScreen />
+        </View>
+    );
+};
+
 export const MainNavigator = () => {
     const insets = useSafeAreaInsets();
     const { theme } = useTheme();
@@ -148,8 +163,8 @@ export const MainNavigator = () => {
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
             <Tab.Navigator
                 tabBar={(props) => {
-                    // Hide navbar for admin users
-                    if (isAdmin) return null;
+                    // Hide navbar for admin users? NO, we want it now.
+                    // if (isAdmin) return null;
 
                     // Map route names to keys
                     const routeName = props.state.routes[props.state.index].name;
@@ -159,6 +174,7 @@ export const MainNavigator = () => {
                     if (routeName === 'Notifications') activeKey = 'notifications';
                     if (routeName === 'Saved') activeKey = 'saved';
                     if (routeName === 'Settings') activeKey = 'settings';
+                    if (routeName === 'Stats') activeKey = 'stats';
 
                     return (
                         <View style={{
@@ -177,8 +193,11 @@ export const MainNavigator = () => {
                                     if (key === 'notifications') props.navigation.navigate('Notifications');
                                     if (key === 'saved') props.navigation.navigate('Saved');
                                     if (key === 'settings') props.navigation.navigate('Settings');
+                                    if (key === 'stats') props.navigation.navigate('Stats');
                                 }}
                                 unreadCount={unreadCount}
+                                isAdmin={isAdmin}
+                                onFabPress={() => props.navigation.navigate('AdminPost')}
                             />
                         </View>
                     );
@@ -200,6 +219,7 @@ export const MainNavigator = () => {
                 <Tab.Screen name="Announcements" component={AnnouncementsTab} />
                 <Tab.Screen name="Notifications" component={NotificationsTab} />
                 <Tab.Screen name="Saved" component={SavedTab} />
+                <Tab.Screen name="Stats" component={StatsTab} />
                 <Tab.Screen name="Settings" component={SettingsTab} />
             </Tab.Navigator>
         </View>

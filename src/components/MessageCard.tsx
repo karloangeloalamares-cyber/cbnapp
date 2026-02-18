@@ -11,11 +11,13 @@ import { useTheme } from '../context/ThemeContext';
 import { FormattedText } from './FormattedText';
 import { FilterIcon } from './Icons';
 import { LinkPreview } from './LinkPreview';
+import { Video, ResizeMode } from 'expo-av';
 
 interface MessageCardProps {
   title?: string;
   content: string;
   image_url?: string | null;
+  video_url?: string | null;
   link_url?: string | null;
   link_text?: string;
   created_at: string;
@@ -42,8 +44,9 @@ export const MessageCard = ({
   title,
   content,
   image_url,
+  video_url,
   link_url,
-  link_text = 'CBN UNFILTERED',
+  link_text,
   created_at,
   author_name = 'CBN Admin',
   reactions,
@@ -133,10 +136,19 @@ export const MessageCard = ({
       overflow: 'hidden',
       marginTop: 4,
       marginBottom: 10,
+      backgroundColor: theme.dark ? '#1E1E1E' : '#F2F2F7', // Subtle background for contain mode
     },
     image: {
       width: '100%',
       height: '100%',
+      resizeMode: 'contain',
+    },
+    video: {
+      width: '100%',
+      height: 208,
+      borderRadius: 10,
+      marginTop: 4,
+      marginBottom: 10,
     },
     linkContainer: {
       paddingHorizontal: 10,
@@ -239,11 +251,21 @@ export const MessageCard = ({
               </View>
             )}
 
+            {video_url && (
+              <Video
+                source={{ uri: video_url }}
+                style={styles.video}
+                useNativeControls
+                resizeMode={ResizeMode.CONTAIN}
+                isLooping={false}
+              />
+            )}
+
             <FormattedText text={content} style={styles.textContent} />
 
             {link_url && (
               <View style={styles.linkContainer}>
-                <Text style={styles.linkTitle}>{link_text}</Text>
+                {link_text && <Text style={styles.linkTitle}>{link_text}</Text>}
                 <Pressable onPress={handleLinkPress}>
                   <Text style={styles.linkUrl}>{link_url}</Text>
                 </Pressable>

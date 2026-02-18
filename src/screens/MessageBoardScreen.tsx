@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View,
     Text,
@@ -28,9 +29,10 @@ import { useTheme } from '../context/ThemeContext';
 import { MessageCard } from '../components/MessageCard';
 import { SelectionHeader } from '../components/SelectionHeader';
 import { FormattingHeader } from '../components/FormattingHeader';
-import { Composer } from '../components/Composer';
+// import { Composer } from '../components/Composer'; // Removed for Admin FAB
 import * as Clipboard from 'expo-clipboard';
 import { PostOptionsModal } from '../components/PostOptionsModal';
+import * as Haptics from 'expo-haptics';
 
 const REACTIONS: { key: ReactionType; emoji: string }[] = [
     { key: 'like', emoji: '👍' },
@@ -97,9 +99,11 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         };
     }, []);
 
-    useEffect(() => {
-        loadAnnouncements();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            loadAnnouncements();
+        }, [])
+    );
 
     const loadAnnouncements = async () => {
         const data = await announcementService.getAll();
@@ -233,6 +237,7 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
 
             await reactionService.add('announcement', targetId, user.id, reaction);
             updateReactionSummary(targetId, reaction, currentReaction);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         } catch (error) {
             console.warn('Reaction error', error);
         }
@@ -250,6 +255,9 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
             } else {
                 newSet.add(id);
             }
+            if (!newSet.has(id)) {
+                Haptics.selectionAsync();
+            }
             return newSet;
         });
     };
@@ -264,11 +272,12 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
             .map((item) => (item.title ? `${item.title}\n\n${item.content}` : item.content))
             .join('\n\n');
         await Clipboard.setStringAsync(textToCopy);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Alert.alert('Copied', 'Announcements copied to clipboard');
         clearSelection();
     };
 
-    const performForward = async (items: Announcement[]) => {
+    const performShare = async (items: Announcement[]) => {
         const textToShare = items
             .map((item) => `${item.title || 'Announcement'}\n\n${item.content}`)
             .join('\n\n----------------\n\n');
@@ -284,9 +293,9 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
         }
     };
 
-    const handleForward = async () => {
+    const handleShare = async () => {
         const selectedAnnouncements = announcements.filter((item) => selectedItems.has(item.id));
-        await performForward(selectedAnnouncements);
+        await performShare(selectedAnnouncements);
     };
 
     const handleDelete = async () => {
@@ -312,6 +321,36 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                         // Actual delete calls
                         for (const id of idsToDelete) {
                             await announcementService.delete(id);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleModalDelete = () => {
+        if (!longPressedItemId) return;
+
+        Alert.alert(
+            'Delete Announcement',
+            'Are you sure you want to delete this announcement?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const idToDelete = longPressedItemId;
+                        setLongPressedItemId(null);
+
+                        // Optimistic update
+                        setAnnouncements((prev) => prev.filter((item) => item.id !== idToDelete));
+
+                        try {
+                            await announcementService.delete(idToDelete);
+                        } catch (error) {
+                            console.error('Failed to delete:', error);
+                            Alert.alert('Error', 'Failed to delete announcement.');
                         }
                     }
                 }
@@ -348,6 +387,7 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
             } else {
                 next.add(targetId);
             }
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             return next;
         });
 
@@ -398,7 +438,10 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                 reactions={reactionContent}
                 isSelected={isSelected}
 
-                onLongPress={() => setLongPressedItemId(item.id)}
+                onLongPress={() => {
+                    Haptics.selectionAsync();
+                    setLongPressedItemId(item.id);
+                }}
                 onPress={() => handleOpenAnnouncement(item)}
             />
         );
@@ -443,7 +486,7 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                         onClearSelection={clearSelection}
                         onDelete={handleDelete}
                         onCopy={handleCopy}
-                        onForward={handleForward}
+                        onShare={handleShare}
                     />
                 )}
 
@@ -476,46 +519,8 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                     }
                 />
 
-                {/* Admin Composer */}
-                {isAdmin && (
-                    <Composer
-                        ref={composerRef}
-                        placeholder="Type an announcement..."
-                        onSelectionChange={(sel) => {
-                            setIsFormatting(sel.start !== sel.end);
-                        }}
-                        onSend={async (text, _, _postType) => {
-                            const content = text.trim();
-
-                            // Optimistic Update
-                            const tempId = Math.random().toString();
-                            const newAnnouncement: Announcement = {
-                                id: tempId,
-                                title: '',
-                                content,
-                                author_id: user!.id,
-                                author_name: user!.display_name,
-                                created_at: new Date().toISOString(),
-                            };
-
-                            setAnnouncements(prev => [newAnnouncement, ...prev]);
-
-                            try {
-                                const created = await announcementService.create(
-                                    '',
-                                    content,
-                                    user!.id,
-                                    user!.display_name
-                                );
-                                setAnnouncements(prev => prev.map(a => a.id === tempId ? created : a));
-                            } catch (error) {
-                                console.error('Failed to post announcement:', error);
-                                Alert.alert('Error', 'Failed to post announcement.');
-                                setAnnouncements(prev => prev.filter(a => a.id !== tempId));
-                            }
-                        }}
-                    />
-                )}
+                {/* Admin Composer Removed - Now using FAB */}
+                {/* {isAdmin && ( ... )} */}
             </KeyboardAvoidingView>
 
             <Modal
@@ -559,10 +564,10 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                         setLongPressedItemId(null);
                     }
                 }}
-                onForward={() => {
+                onShare={() => {
                     const item = announcements.find(a => a.id === longPressedItemId);
                     if (item) {
-                        performForward([item]);
+                        performShare([item]);
                         setLongPressedItemId(null);
                     }
                 }}
@@ -571,11 +576,14 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                     if (item) {
                         const text = item.title ? `${item.title}\n\n${item.content}` : item.content;
                         await Clipboard.setStringAsync(text);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         Alert.alert('Copied', 'Announcement copied to clipboard');
                     }
                     setLongPressedItemId(null);
                 }}
+                onDelete={() => handleModalDelete()}
                 isSaved={longPressedItemId ? savedItemIds.has(longPressedItemId) : false}
+                isAdmin={isAdmin}
             />
         </View>
     );

@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View,
     Text,
@@ -27,11 +28,11 @@ import { useTheme } from '../context/ThemeContext';
 import { MessageCard } from '../components/MessageCard';
 import { SelectionHeader } from '../components/SelectionHeader';
 import { FormattingHeader } from '../components/FormattingHeader';
-import { Composer, PostType } from '../components/Composer';
 import * as Clipboard from 'expo-clipboard';
 import { downloadAsync, cacheDirectory } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { PostOptionsModal } from '../components/PostOptionsModal';
+import * as Haptics from 'expo-haptics';
 
 const getDateKey = (dateString: string): string => {
     const date = new Date(dateString);
@@ -150,9 +151,11 @@ export const NewsScreen = () => {
         await loadSavedItems(articles);
     };
 
-    useEffect(() => {
-        loadNews();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            loadNews();
+        }, [])
+    );
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -277,6 +280,7 @@ export const NewsScreen = () => {
 
             await reactionService.add('news', targetId, user.id, reaction);
             updateReactionSummary(targetId, reaction, currentReaction);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         } catch (error) {
             Alert.alert('Error', 'Failed to update reaction. Please try again.');
         }
@@ -289,6 +293,9 @@ export const NewsScreen = () => {
                 newSet.delete(id);
             } else {
                 newSet.add(id);
+            }
+            if (!newSet.has(id)) {
+                Haptics.selectionAsync();
             }
             return newSet;
         });
@@ -308,6 +315,7 @@ export const NewsScreen = () => {
             return parts.join('\n');
         }).join('\n\n');
         await Clipboard.setStringAsync(textToCopy);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Alert.alert('Copied', 'Messages copied to clipboard');
         clearSelection();
     };
@@ -401,6 +409,7 @@ export const NewsScreen = () => {
 
         if (canTrackView && user && !viewSummary[article.id]?.hasViewed) {
             try {
+                Haptics.selectionAsync();
                 await postViewsService.add('news', article.id, user.id);
                 updateViewSummary(article.id);
             } catch (error: any) {
@@ -425,6 +434,7 @@ export const NewsScreen = () => {
             } else {
                 next.add(targetId);
             }
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             return next;
         });
 
@@ -541,6 +551,7 @@ export const NewsScreen = () => {
             <MessageCard
                 content={item.article.content || ''}
                 image_url={item.article.image_url}
+                video_url={item.article.video_url}
                 link_url={item.article.link_url}
                 link_text={item.article.link_text}
                 created_at={item.article.created_at}
@@ -550,13 +561,16 @@ export const NewsScreen = () => {
                 reactions={reactionContent}
                 isSelected={isSelected}
 
-                onLongPress={() => setLongPressedItemId(item.article.id)}
+                onLongPress={() => {
+                    Haptics.selectionAsync();
+                    setLongPressedItemId(item.article.id);
+                }}
                 onPress={() => handleOpenDetail(item.article)}
             />
         );
     };
 
-    const performForward = async (articles: NewsArticle[]) => {
+    const performShare = async (articles: NewsArticle[]) => {
         // For a single item with an image, share the image file + text
         if (articles.length === 1 && articles[0].image_url) {
             const article = articles[0];
@@ -606,9 +620,9 @@ export const NewsScreen = () => {
         }
     };
 
-    const handleForward = async () => {
+    const handleShare = async () => {
         const selectedArticles = news.filter((item) => selectedItems.has(item.id));
-        await performForward(selectedArticles);
+        await performShare(selectedArticles);
     };
 
     return (
@@ -643,7 +657,7 @@ export const NewsScreen = () => {
                         onClearSelection={clearSelection}
                         onDelete={handleDelete}
                         onCopy={handleCopy}
-                        onForward={handleForward}
+                        onShare={handleShare}
                     // Explicitly NO Reply button as requested
                     />
                 )}
@@ -663,62 +677,8 @@ export const NewsScreen = () => {
                     }
                 />
 
-                {/* Admin Composer */}
-                {isAdmin && (
-                    <Composer
-                        ref={composerRef}
-                        onSelectionChange={(sel) => {
-                            setIsFormatting(sel.start !== sel.end);
-                        }}
-                        onSend={async (text, imageUri, postType: PostType) => {
-                            if (postType === 'announcement') {
-                                // Post as announcement
-                                try {
-                                    await announcementService.create(
-                                        '',
-                                        text,
-                                        user!.id,
-                                        user!.display_name
-                                    );
-                                    Alert.alert('Success', 'Announcement posted.');
-                                } catch (error) {
-                                    console.error('Failed to post announcement:', error);
-                                    Alert.alert('Error', 'Failed to post announcement.');
-                                }
-                                return;
-                            }
-
-                            // Post as news (optimistic update)
-                            const tempId = Math.random().toString();
-                            const newArticle: NewsArticle = {
-                                id: tempId,
-                                headline: '',
-                                content: text,
-                                image_url: imageUri || undefined,
-                                author_id: user!.id,
-                                author_name: user!.display_name,
-                                created_at: new Date().toISOString(),
-                            };
-
-                            setNews(prev => [newArticle, ...prev]);
-
-                            try {
-                                const created = await newsService.create(
-                                    '',
-                                    text,
-                                    user!.id,
-                                    user!.display_name,
-                                    imageUri || undefined
-                                );
-                                setNews(prev => prev.map(a => a.id === tempId ? created : a));
-                            } catch (error) {
-                                console.error('Failed to post news:', error);
-                                Alert.alert('Error', 'Failed to post news.');
-                                setNews(prev => prev.filter(a => a.id !== tempId));
-                            }
-                        }}
-                    />
-                )}
+                {/* Admin Composer Removed - Now using FAB */}
+                {/* {isAdmin && ( ... )} */}
             </KeyboardAvoidingView>
 
             <Modal
@@ -762,10 +722,10 @@ export const NewsScreen = () => {
                         setLongPressedItemId(null);
                     }
                 }}
-                onForward={() => {
+                onShare={() => {
                     const item = news.find(n => n.id === longPressedItemId);
                     if (item) {
-                        performForward([item]);
+                        performShare([item]);
                         setLongPressedItemId(null);
                     }
                 }}
@@ -777,6 +737,7 @@ export const NewsScreen = () => {
                         if (article.image_url) parts.push(article.image_url);
                         if (article.link_url) parts.push(article.link_url);
                         await Clipboard.setStringAsync(parts.join('\n'));
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         Alert.alert('Copied', 'Message copied to clipboard');
                     }
                     setLongPressedItemId(null);

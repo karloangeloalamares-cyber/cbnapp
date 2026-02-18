@@ -8,7 +8,7 @@ interface SelectionHeaderProps {
     onClearSelection: () => void;
     onDelete?: () => void;
     onReply?: () => void;
-    onForward?: () => void;
+    onShare?: () => void;
     onCopy?: () => void;
     onStar?: () => void;
 }
@@ -18,7 +18,7 @@ export const SelectionHeader = ({
     onClearSelection,
     onDelete,
     onReply,
-    onForward,
+    onShare,
     onCopy,
     onStar,
 }: SelectionHeaderProps) => {
@@ -44,8 +44,9 @@ export const SelectionHeader = ({
                 </View>
 
                 <View style={styles.rightSection}>
-                    <Pressable onPress={() => handleAction('Forward', onForward)} style={styles.iconButton}>
-                        <Text style={styles.icon}>↪️</Text>
+                    <Pressable onPress={() => handleAction('Share', onShare)} style={styles.iconButton}>
+                        {/* Changed from Forward ↪️ to Share using arrow up tray or similar emoji */}
+                        <Text style={styles.icon}>📤</Text>
                     </Pressable>
                     <Pressable onPress={() => handleAction('Star', onStar)} style={styles.iconButton}>
                         <Text style={styles.icon}>⭐</Text>

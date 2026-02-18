@@ -12,6 +12,9 @@ import { postViewsService } from '../services/postViewsService';
 import { Announcement, NewsArticle, SavedItem } from '../types';
 import { MessageCard } from '../components/MessageCard';
 import { SavedIcon } from '../components/Icons';
+import { PostOptionsModal } from '../components/PostOptionsModal';
+import * as Clipboard from 'expo-clipboard';
+import { Share } from 'react-native';
 
 
 type SavedFeedItem =
@@ -73,6 +76,7 @@ export const SavedScreen = () => {
 
     const [items, setItems] = useState<SavedFeedItem[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [longPressedItem, setLongPressedItem] = useState<SavedFeedItem | null>(null);
 
     const loadSavedItems = useCallback(async () => {
         if (!user || isAdmin) {
@@ -172,6 +176,35 @@ export const SavedScreen = () => {
         }
     };
 
+
+    const handleCopy = async () => {
+        if (!longPressedItem) return;
+        const content = longPressedItem.type === 'news'
+            ? `${longPressedItem.article.headline}\n\n${longPressedItem.article.content}`
+            : `${longPressedItem.announcement.title || 'Announcement'}\n\n${longPressedItem.announcement.content}`;
+
+        await Clipboard.setStringAsync(content);
+        Alert.alert('Copied', 'Content copied to clipboard');
+        setLongPressedItem(null);
+    };
+
+    const handleForward = async () => {
+        if (!longPressedItem) return;
+        const content = longPressedItem.type === 'news'
+            ? `${longPressedItem.article.headline}\n\n${longPressedItem.article.content}`
+            : `${longPressedItem.announcement.title || 'Announcement'}\n\n${longPressedItem.announcement.content}`;
+
+        try {
+            await Share.share({
+                message: content,
+                title: 'Share Content'
+            });
+            setLongPressedItem(null);
+        } catch (error) {
+            Alert.alert('Error', 'Failed to share content.');
+        }
+    };
+
     const renderItem = ({ item }: { item: SavedFeedItem }) => {
         if (item.type === 'news') {
             return (
@@ -182,8 +215,8 @@ export const SavedScreen = () => {
                     link_text={item.article.link_text}
                     created_at={item.article.created_at}
                     author_name={item.article.author_name || 'CBN Admin'}
-
                     onPress={() => handleOpenItem(item)}
+                    onLongPress={() => setLongPressedItem(item)}
                 />
             );
         }
@@ -195,8 +228,8 @@ export const SavedScreen = () => {
                 created_at={item.announcement.created_at}
                 author_name={item.announcement.author_name || 'Announcement'}
                 variant="announcement"
-
                 onPress={() => handleOpenItem(item)}
+                onLongPress={() => setLongPressedItem(item)}
             />
         );
     };
@@ -237,6 +270,20 @@ export const SavedScreen = () => {
                     }
                 />
             </View>
+
+            <PostOptionsModal
+                visible={!!longPressedItem}
+                onClose={() => setLongPressedItem(null)}
+                isSaved={true}
+                onSave={() => {
+                    if (longPressedItem) {
+                        handleUnsave(longPressedItem);
+                        setLongPressedItem(null);
+                    }
+                }}
+                onCopy={handleCopy}
+                onForward={handleForward}
+            />
         </View>
     );
 };

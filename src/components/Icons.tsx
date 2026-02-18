@@ -342,7 +342,87 @@ export const DeleteIcon = ({ size = 24, color = '#8696A0', strokeWidth = 2 }: Ic
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    <Line x1="10" y1="11" x2="10" y2="17" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
     <Line x1="14" y1="11" x2="14" y2="17" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+  </Svg>
+);
+
+// Stats/Chart Icon (3 vertical lines)
+export const StatsIcon = ({ size = 24, color = '#8696A0', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Line x1="18" y1="20" x2="18" y2="10" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    <Line x1="12" y1="20" x2="12" y2="4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    <Line x1="6" y1="20" x2="6" y2="14" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+  </Svg>
+);
+
+/**
+ * Plus/Add Icon
+ * Used for the Admin FAB
+ */
+export const PlusIcon = ({ size = 24, color = '#FFFFFF', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Line x1="12" y1="5" x2="12" y2="19" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    <Line x1="5" y1="12" x2="19" y2="12" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+  </Svg>
+);
+
+/**
+ * Composer Gallery Icon (From Design)
+ * ViewBox tailored to frame the path from the provided global SVG
+ */
+export const ComposerGalleryIcon = ({ size = 24, color = '#FFFFFF' }: { size?: number, color?: string }) => (
+  <Svg width={size} height={size} viewBox="31 14.5 24 24" fill="none">
+    <Path d="M52 25.5352C51.6697 25.5119 51.3362 25.5 51 25.5C47.1879 25.5 43.7317 27.0236 41.207 29.4951M41.207 29.4951C39.1017 28.2285 36.6359 27.5 34 27.5M41.207 29.4951C39.5315 31.1353 38.2663 33.1931 37.5798 35.5M36 17.5H50C51.1046 17.5 52 18.3954 52 19.5V33.5C52 34.6046 51.1046 35.5 50 35.5H36C34.8954 35.5 34 34.6046 34 33.5V19.5C34 18.3954 34.8954 17.5 36 17.5ZM39 21.5C39.3333 21.5 40 21.7 40 22.5C40 23.3 39.3333 23.5 39 23.5C38.6667 23.5 38 23.3 38 22.5C38 21.7 38.6667 21.5 39 21.5Z" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+/**
+ * Composer GIF Icon (From Design)
+ */
+export const ComposerGifIcon = ({ size = 24, color = '#FFFFFF' }: { size?: number, color?: string }) => (
+  <Svg width={size} height={size} viewBox="65 14.5 24 24" fill="none">
+    <Path d="M70.75 26.8676C70.75 28.5113 71.7095 29.5 73.3404 29.5C74.7904 29.5 75.7672 28.638 75.7672 27.3662V27.0155C75.7672 26.4789 75.5176 26.238 74.9497 26.238H73.8954C73.5168 26.238 73.3145 26.4113 73.3145 26.7282C73.3145 27.0493 73.5211 27.2268 73.8954 27.2268H74.4247V27.4718C74.4247 28 74.0116 28.3549 73.3963 28.3549C72.6046 28.3549 72.17 27.8268 72.17 26.8634V26.1662C72.17 25.1901 72.596 24.6789 73.4092 24.6789C73.9643 24.6789 74.287 25.0085 74.6355 25.3507C74.7603 25.4732 74.8894 25.5282 75.0572 25.5282C75.3972 25.5282 75.6338 25.3 75.6338 24.9662C75.6338 24.6324 75.3799 24.269 74.9927 23.9944C74.5624 23.6775 73.9729 23.5 73.3059 23.5C71.7225 23.5 70.75 24.5014 70.75 26.0986V26.8676Z" fill={color} />
+    <Path d="M77.3894 29.4155C77.8412 29.4155 78.0951 29.1451 78.0951 28.6634V24.3155C78.0951 23.838 77.8369 23.5634 77.3808 23.5634C76.9247 23.5634 76.6708 23.8338 76.6708 24.3155V28.6634C76.6708 29.1408 76.9333 29.4155 77.3894 29.4155Z" fill={color} />
+    <Path d="M79.9626 29.4155C80.4101 29.4155 80.6596 29.1451 80.6596 28.6634V27.2014H82.4669C82.8025 27.2014 83.0306 26.9817 83.0306 26.6563C83.0306 26.331 82.8068 26.1113 82.4669 26.1113H80.6596V24.7254H82.6863C83.0133 24.7254 83.25 24.4971 83.25 24.1718C83.25 23.8422 83.0133 23.6056 82.6863 23.6056H80.0572C79.5237 23.6056 79.2354 23.8887 79.2354 24.4042V28.6634C79.2354 29.1366 79.5022 29.4155 79.9626 29.4155Z" fill={color} />
+    <Path d="M82.25 18.25H71.75C70.0932 18.25 68.75 19.5932 68.75 21.25V31.75C68.75 33.4069 70.0932 34.75 71.75 34.75H82.25C83.9069 34.75 85.25 33.4069 85.25 31.75V21.25C85.25 19.5932 83.9069 18.25 82.25 18.25Z" stroke={color} strokeWidth={1.5} strokeLinecap="square" strokeLinejoin="round" />
+  </Svg>
+);
+
+/**
+ * Composer Video/Camera Icon (From Design)
+ */
+export const ComposerVideoIcon = ({ size = 24, color = '#FFFFFF' }: { size?: number, color?: string }) => (
+  <Svg width={size} height={size} viewBox="99 14.5 24 24" fill="none">
+    <Path d="M116 26.5V22.5C116 21.3954 115.105 20.5 114 20.5H104C102.895 20.5 102 21.3954 102 22.5V30.5C102 31.6046 102.895 32.5 104 32.5H114C115.105 32.5 116 31.6046 116 30.5V26.5ZM116 26.5L120 22.5V30.5L116 26.5Z" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+/**
+ * Composer Chart/Poll Icon (From Design)
+ */
+export const ComposerChartIcon = ({ size = 24, color = '#FFFFFF' }: { size?: number, color?: string }) => (
+  <Svg width={size} height={size} viewBox="132.5 14.25 24 24" fill="none">
+    <Path fillRule="evenodd" clipRule="evenodd" d="M144.615 17.4L146.936 17.4C147.459 17.4 147.759 17.4 148.018 17.4204C151.254 17.6751 153.825 20.2457 154.08 23.4822C154.1 23.7409 154.1 24.0407 154.1 24.5642V24.6376C154.1 25.438 154.1 25.8771 154.07 26.2532C153.7 30.9609 149.961 34.6999 145.253 35.0704C144.877 35.1 144.438 35.1 143.638 35.1H143.252C142.554 35.1 142.154 35.1001 141.81 35.0639C138.711 34.7381 136.262 32.2891 135.936 29.1899C135.9 28.8457 135.9 28.4458 135.9 27.7478L135.9 26.1155C135.9 24.1494 135.9 23.0216 136.184 22.0842C136.824 19.9748 138.475 18.3241 140.584 17.6842C141.522 17.3999 142.649 17.3999 144.615 17.4ZM144.75 18.6C142.613 18.6 141.678 18.6066 140.932 18.8326C139.207 19.3561 137.856 20.7066 137.333 22.4325C137.107 23.1775 137.1 24.1129 137.1 26.25V27.7C137.1 28.4583 137.101 28.7909 137.13 29.0645C137.396 31.6002 139.4 33.6039 141.936 33.8704C142.209 33.8992 142.542 33.9 143.3 33.9H143.6C144.447 33.9 144.836 33.8996 145.159 33.8741C145.295 33.8634 145.4 33.7476 145.399 33.6067C145.399 33.5731 145.399 33.5396 145.399 33.506C145.397 32.7486 145.394 31.9839 145.457 31.224C145.514 30.5199 145.633 29.9382 145.901 29.4117C146.342 28.5461 147.046 27.8424 147.912 27.4014C148.438 27.1331 149.02 27.014 149.724 26.9565C150.548 26.8892 151.376 26.8929 152.198 26.8975C152.443 26.8988 152.533 26.8971 152.61 26.8611C152.677 26.8298 152.745 26.7682 152.783 26.7051C152.827 26.6321 152.837 26.5507 152.859 26.3269C152.865 26.2711 152.87 26.2152 152.874 26.1591C152.9 25.836 152.9 25.4472 152.9 24.6C152.9 24.0314 152.9 23.7819 152.883 23.5764C152.675 20.9283 150.572 18.8251 147.924 18.6167C147.718 18.6005 147.469 18.6 146.9 18.6H144.75ZM151.975 28.0978C151.254 28.0945 150.535 28.0943 149.822 28.1525C149.192 28.204 148.786 28.3029 148.456 28.4706C147.817 28.7966 147.297 29.3167 146.971 29.9565C146.803 30.2856 146.704 30.6918 146.653 31.3217C146.613 31.8079 146.603 32.3967 146.601 33.1526C146.6 33.2574 146.6 33.3289 146.605 33.3836C146.61 33.4369 146.62 33.4632 146.631 33.4811C146.656 33.5215 146.703 33.556 146.749 33.5681C146.771 33.5736 146.798 33.5744 146.847 33.564C146.898 33.5533 146.962 33.5329 147.057 33.5026C149.466 32.7341 151.398 30.913 152.318 28.5765C152.356 28.4786 152.382 28.412 152.397 28.359C152.412 28.3077 152.412 28.2795 152.408 28.2577C152.398 28.2093 152.364 28.1597 152.323 28.1323C152.305 28.1204 152.278 28.1104 152.221 28.1046C152.163 28.0987 152.086 28.0983 151.975 28.0978Z" fill={color} />
+  </Svg>
+);
+
+/**
+ * Composer Mic Icon (From Design)
+ */
+export const ComposerMicIcon = ({ size = 24, color = '#FFFFFF' }: { size?: number, color?: string }) => (
+  <Svg width={size} height={size} viewBox="347 14.5 24 24" fill="none">
+    <Path d="M362 19.5C362 17.8431 360.657 16.5 359 16.5C357.343 16.5 356 17.8431 356 19.5V25.5C356 27.1569 357.343 28.5 359 28.5C360.657 28.5 362 27.1569 362 25.5V19.5Z" stroke={color} strokeWidth={1.5} />
+    <Path d="M352 24.5V25.5C352 29.366 355.134 32.5 359 32.5C362.866 32.5 366 29.366 366 25.5V24.5" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M359 32.5V36.5M359 36.5H356M359 36.5H362" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+/**
+ * Send Plane/Arrow Icon
+ */
+export const SendPlaneIcon = ({ size = 24, color = '#FFFFFF', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Line x1="22" y1="2" x2="11" y2="13" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    <Polyline points="22 2 15 22 11 13 2 9 22 2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );

@@ -76,7 +76,7 @@ export const SignUpScreen = () => {
                                 setError('');
                             }}
                             placeholder="Full Name"
-                            placeholderTextColor="#666666"
+                            placeholderTextColor={theme.colors.textSecondary}
                             autoCapitalize="words"
                         />
                     </View>
@@ -90,7 +90,7 @@ export const SignUpScreen = () => {
                                 setError('');
                             }}
                             placeholder="Email"
-                            placeholderTextColor="#666666"
+                            placeholderTextColor={theme.colors.textSecondary}
                             keyboardType="email-address"
                             autoCapitalize="none"
                         />
@@ -105,12 +105,11 @@ export const SignUpScreen = () => {
                                 setError('');
                             }}
                             placeholder="Password"
-                            placeholderTextColor="#666666"
+                            placeholderTextColor={theme.colors.textSecondary}
                             secureTextEntry={!showPassword}
                         />
-                        <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                            {/* Placeholder for eye icon */}
-                            <Text style={{ color: '#666', fontSize: 18 }}>👁️</Text>
+                        <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.passwordToggle}>
+                            <Text style={styles.passwordToggleText}>{showPassword ? 'HIDE' : 'SHOW'}</Text>
                         </Pressable>
                     </View>
 
@@ -123,7 +122,7 @@ export const SignUpScreen = () => {
                                 setError('');
                             }}
                             placeholder="Confirm Password"
-                            placeholderTextColor="#666666"
+                            placeholderTextColor={theme.colors.textSecondary}
                             secureTextEntry
                         />
                     </View>
@@ -167,7 +166,7 @@ const createStyles = (theme: any) =>
     StyleSheet.create({
         container: {
             flex: 1,
-            backgroundColor: '#000000',
+            backgroundColor: theme.colors.background,
         },
         header: {
             flexDirection: 'row',
@@ -180,11 +179,11 @@ const createStyles = (theme: any) =>
             padding: 8,
         },
         backArrow: {
-            color: '#fff',
+            color: theme.colors.text,
             fontSize: 24,
         },
         headerTitle: {
-            color: '#fff',
+            color: theme.colors.text,
             fontSize: 16,
             fontFamily: 'Inter',
             fontWeight: '500',
@@ -196,7 +195,7 @@ const createStyles = (theme: any) =>
         },
         welcomeText: {
             fontSize: 24,
-            color: '#FFFFFF',
+            color: theme.colors.text,
             textAlign: 'center',
             marginBottom: 32,
             fontFamily: 'Inter',
@@ -206,26 +205,32 @@ const createStyles = (theme: any) =>
             gap: 16,
         },
         inputContainer: {
-            backgroundColor: '#111111',
+            backgroundColor: theme.colors.inputBackground,
             borderRadius: 12,
             borderWidth: 1,
-            borderColor: '#333333',
+            borderColor: theme.colors.border,
             height: 56,
             justifyContent: 'center',
             paddingHorizontal: 16,
         },
         input: {
-            color: '#FFFFFF',
+            color: theme.colors.text,
             fontSize: 16,
             fontFamily: 'Inter',
             flex: 1,
         },
-        eyeIcon: {
+        passwordToggle: {
             position: 'absolute',
             right: 16,
         },
+        passwordToggleText: {
+            color: theme.colors.primary,
+            fontSize: 12,
+            fontWeight: '700',
+            fontFamily: 'Inter',
+        },
         createButton: {
-            backgroundColor: '#FFFFFF',
+            backgroundColor: theme.colors.primary,
             borderRadius: 12,
             height: 56,
             justifyContent: 'center',
@@ -233,7 +238,7 @@ const createStyles = (theme: any) =>
             marginTop: 16,
         },
         createButtonText: {
-            color: '#000000',
+            color: '#FFFFFF',
             fontSize: 16,
             fontWeight: 'bold',
             fontFamily: 'Inter',
@@ -247,10 +252,10 @@ const createStyles = (theme: any) =>
         dividerLine: {
             flex: 1,
             height: 1,
-            backgroundColor: '#333333',
+            backgroundColor: theme.colors.border,
         },
         dividerText: {
-            color: '#666666',
+            color: theme.colors.textSecondary,
             paddingHorizontal: 16,
             fontSize: 14,
             fontFamily: 'Inter',
@@ -279,10 +284,11 @@ const createStyles = (theme: any) =>
             marginLeft: 12,
         },
         errorText: {
-            color: '#FF4444',
+            color: theme.colors.danger || '#FF4444',
             fontSize: 14,
             fontFamily: 'Inter',
             textAlign: 'center',
             marginBottom: 12,
         },
     });
+

@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import { SavedIcon, ForwardIcon, CopyIcon, EditIcon, DeleteIcon } from './Icons';
 
 interface PostOptionsModalProps {
     visible: boolean;
     onClose: () => void;
     onSave: () => void;
-    onForward: () => void;
+    onShare: () => void;
     onCopy: () => void;
     onEdit?: () => void;
     onDelete?: () => void;
@@ -18,13 +19,16 @@ export const PostOptionsModal = ({
     visible,
     onClose,
     onSave,
-    onForward,
+    onShare,
     onCopy,
     onEdit,
     onDelete,
     isSaved = false,
     isAdmin = false,
 }: PostOptionsModalProps) => {
+    const { theme } = useTheme();
+    const styles = React.useMemo(() => createStyles(theme), [theme]);
+
     if (!visible) return null;
 
     return (
@@ -38,23 +42,26 @@ export const PostOptionsModal = ({
                 <View style={styles.overlay}>
                     <TouchableWithoutFeedback>
                         <View style={styles.menuContainer}>
-                            <TouchableOpacity style={styles.menuItem} onPress={onSave}>
-                                <Text style={styles.menuText}>{isSaved ? 'Unsave' : 'Save'}</Text>
-                                <SavedIcon size={20} color="#FFFFFF" />
-                            </TouchableOpacity>
+                            {!isAdmin && (
+                                <>
+                                    <TouchableOpacity style={styles.menuItem} onPress={onSave}>
+                                        <Text style={styles.menuText}>{isSaved ? 'Unsave' : 'Save'}</Text>
+                                        <SavedIcon size={20} color={theme.colors.text} />
+                                    </TouchableOpacity>
+                                    <View style={styles.divider} />
+                                </>
+                            )}
 
-                            <View style={styles.divider} />
-
-                            <TouchableOpacity style={styles.menuItem} onPress={onForward}>
-                                <Text style={styles.menuText}>Forward</Text>
-                                <ForwardIcon size={20} color="#FFFFFF" />
+                            <TouchableOpacity style={styles.menuItem} onPress={onShare}>
+                                <Text style={styles.menuText}>Share</Text>
+                                <ForwardIcon size={20} color={theme.colors.text} />
                             </TouchableOpacity>
 
                             <View style={styles.divider} />
 
                             <TouchableOpacity style={styles.menuItem} onPress={onCopy}>
                                 <Text style={styles.menuText}>Copy</Text>
-                                <CopyIcon size={20} color="#FFFFFF" />
+                                <CopyIcon size={20} color={theme.colors.text} />
                             </TouchableOpacity>
 
                             {isAdmin && (
@@ -62,13 +69,17 @@ export const PostOptionsModal = ({
                                     <View style={styles.divider} />
                                     <TouchableOpacity style={styles.menuItem} onPress={onEdit}>
                                         <Text style={styles.menuText}>Edit</Text>
-                                        <EditIcon size={20} color="#FFFFFF" />
+                                        <EditIcon size={20} color={theme.colors.text} />
                                     </TouchableOpacity>
+                                </>
+                            )}
 
+                            {onDelete && (
+                                <>
                                     <View style={styles.divider} />
                                     <TouchableOpacity style={styles.menuItem} onPress={onDelete}>
-                                        <Text style={[styles.menuText, { color: '#EF4444' }]}>Delete</Text>
-                                        <DeleteIcon size={20} color="#EF4444" />
+                                        <Text style={[styles.menuText, { color: theme.colors.danger || '#EF4444' }]}>Delete</Text>
+                                        <DeleteIcon size={20} color={theme.colors.danger || '#EF4444'} />
                                     </TouchableOpacity>
                                 </>
                             )}
@@ -80,39 +91,40 @@ export const PostOptionsModal = ({
     );
 };
 
-const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    menuContainer: {
-        backgroundColor: '#242626',
-        borderRadius: 10,
-        width: 175,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4.65,
-        elevation: 8,
-    },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: 52,
-        paddingHorizontal: 16,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#2F2F2F',
-        marginHorizontal: 10,
-    },
-    menuText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '500',
-        fontFamily: 'Inter',
-    },
-});
+const createStyles = (theme: any) =>
+    StyleSheet.create({
+        overlay: {
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        menuContainer: {
+            backgroundColor: theme.colors.surface,
+            borderRadius: 10,
+            width: 175,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4.65,
+            elevation: 8,
+        },
+        menuItem: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            height: 52,
+            paddingHorizontal: 16,
+        },
+        divider: {
+            height: 1,
+            backgroundColor: theme.colors.border,
+            marginHorizontal: 10,
+        },
+        menuText: {
+            color: theme.colors.text,
+            fontSize: 16,
+            fontWeight: '500',
+            fontFamily: 'Inter',
+        },
+    });

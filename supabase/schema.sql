@@ -26,6 +26,7 @@ create table if not exists public.cbn_app_news (
   headline text, -- Optional now
   content text not null,
   image_url text,
+  video_url text,
   link_url text,
   link_text text,
   author_id uuid references public.cbn_app_profiles(id) not null,

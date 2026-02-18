@@ -11,19 +11,22 @@ create table if not exists public.cbn_app_saved_items (
 -- Enable Row Level Security
 alter table public.cbn_app_saved_items enable row level security;
 
--- Policies
+-- Policies (Drop first to avoid "already exists" errors)
 
--- Users can insert their own saved items
+-- Insert Policy
+drop policy if exists "Users can insert their own saved items" on public.cbn_app_saved_items;
 create policy "Users can insert their own saved items"
   on public.cbn_app_saved_items for insert
   with check (auth.uid() = user_id);
 
--- Users can view their own saved items
+-- Select Policy
+drop policy if exists "Users can view their own saved items" on public.cbn_app_saved_items;
 create policy "Users can view their own saved items"
   on public.cbn_app_saved_items for select
   using (auth.uid() = user_id);
 
--- Users can delete their own saved items
+-- Delete Policy
+drop policy if exists "Users can delete their own saved items" on public.cbn_app_saved_items;
 create policy "Users can delete their own saved items"
   on public.cbn_app_saved_items for delete
   using (auth.uid() = user_id);

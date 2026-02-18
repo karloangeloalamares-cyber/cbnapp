@@ -22,6 +22,7 @@ export interface NewsArticle {
   headline: string;
   content: string;
   image_url?: string;
+  video_url?: string;
   link_url?: string;
   link_text?: string;
   author_id: string;

@@ -6,6 +6,7 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -15,27 +16,38 @@ import {
   NotificationIcon,
   SavedIcon,
   SettingsIcon,
+  StatsIcon,
+  PlusIcon,
 } from './Icons';
 
-type NavigationBarItem = 'home' | 'announcements' | 'notifications' | 'saved' | 'settings';
+type NavigationBarItem = 'home' | 'announcements' | 'notifications' | 'saved' | 'settings' | 'stats';
 
 interface NavigationBarProps {
   activeItem?: NavigationBarItem;
   onItemPress?: (item: NavigationBarItem) => void;
-  unreadCount?: number; // Added unreadCount prop
+  unreadCount?: number;
+  isAdmin?: boolean;
+  onFabPress?: () => void;
 }
 
 interface NavItem {
   key: NavigationBarItem;
-  name: 'Home' | 'Announcements' | 'Notifications' | 'Saved' | 'Settings';
+  name: 'Home' | 'Announcements' | 'Notifications' | 'Saved' | 'Settings' | 'Stats';
   route?: string;
   icon: (color: string) => React.ReactNode;
 }
 
-export const NavigationBar = ({ activeItem, onItemPress, unreadCount = 0 }: NavigationBarProps) => { // Added unreadCount with default value
+export const NavigationBar = ({
+  activeItem,
+  onItemPress,
+  unreadCount = 0,
+  isAdmin = false,
+  onFabPress
+}: NavigationBarProps) => {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
 
   const canNavigateTo = (routeName: string) => {
     const availableRoutes = navigation.getState?.()?.routeNames ?? [];
@@ -49,7 +61,34 @@ export const NavigationBar = ({ activeItem, onItemPress, unreadCount = 0 }: Navi
     return item.route ? route.name === item.route : false;
   };
 
-  const navItems: NavItem[] = [
+  const navItems: NavItem[] = isAdmin ? [
+    {
+      key: 'home',
+      name: 'Home',
+      route: 'Home',
+      icon: (color: string) => <NewsIcon size={22} color={color} strokeWidth={1.5} />,
+    },
+    {
+      key: 'announcements',
+      name: 'Announcements',
+      route: 'Announcements',
+      icon: (color: string) => (
+        <AnnouncementIcon size={28} color={color} strokeWidth={1.5} />
+      ),
+    },
+    {
+      key: 'stats',
+      name: 'Stats', // Placeholder name if you want
+      route: 'Stats',
+      icon: (color: string) => <StatsIcon size={22} color={color} strokeWidth={1.5} />,
+    },
+    {
+      key: 'settings',
+      name: 'Settings',
+      route: 'Settings',
+      icon: (color: string) => <SettingsIcon size={22} color={color} strokeWidth={1.5} />,
+    },
+  ] : [
     {
       key: 'home',
       name: 'Home',
@@ -120,9 +159,10 @@ export const NavigationBar = ({ activeItem, onItemPress, unreadCount = 0 }: Navi
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 20,
-      paddingVertical: 14,
+      paddingVertical: 17,
       borderRadius: 100,
-      backgroundColor: 'rgba(0, 0, 0, 0.2)', // Semi-transparent black (from Figma)
+      backgroundColor: isAdmin ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.2)', // Both seem to use 20% black based on recent feedback/SVG, but user specifically sent black 0.2 for Admin.
+      // Actually standard design might be different. Let's explicitly check isAdmin for the style.
       overflow: 'hidden', // Required for BlurView radius
       width: '100%',
     },
@@ -156,12 +196,111 @@ export const NavigationBar = ({ activeItem, onItemPress, unreadCount = 0 }: Navi
       fontWeight: '700',
       fontFamily: 'Inter',
     },
+    // Admin Specific Styles
+    adminWrapper: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: insets.bottom + 20, // Dynamic safe area (Edge-to-Edge) + padding
+      zIndex: 1000,
+    },
+    adminNavPill: {
+      width: 250,
+      height: 84,
+      borderRadius: 42,
+      backgroundColor: 'rgba(0, 0, 0, 0.2)',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 25,
+      marginRight: 10, // Gap between pill and FAB
+    },
+    adminFabPill: {
+      width: 84,
+      height: 84,
+      borderRadius: 42,
+      backgroundColor: 'rgba(0, 0, 0, 0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    fabButton: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: '#ED1D26',
+      justifyContent: 'center',
+      alignItems: 'center',
+      // Shadow typically on the red button
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4.65,
+      elevation: 8,
+    },
   });
 
+  if (isAdmin) {
+    const tint = theme.dark ? 'dark' : 'light';
+    const intensity = Platform.OS === 'android' ? 20 : 50;
+    const pillBg = theme.dark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)';
+
+    return (
+      <View style={styles.adminWrapper}>
+        {/* Navigation Pill (250x84) */}
+        <View style={[styles.shadowContainer, { marginHorizontal: 0, marginRight: 10 }]}>
+          <BlurView
+            intensity={intensity}
+            tint={tint}
+            style={[styles.adminNavPill, { backgroundColor: pillBg }]}
+          >
+            {navItems.map((item) => {
+              const active = isActive(item);
+              const iconColor = '#FFFFFF';
+
+              return (
+                <Pressable
+                  key={item.key}
+                  style={[styles.navItem, active && styles.activeItem]}
+                  onPress={() => {
+                    if (onItemPress) { onItemPress(item.key); return; }
+                    if (item.route && canNavigateTo(item.route)) navigation.navigate(item.route);
+                  }}
+                >
+                  {item.icon(iconColor)}
+                </Pressable>
+              );
+            })}
+          </BlurView>
+        </View>
+
+        {/* FAB Pill (84x84) */}
+        <View style={[styles.shadowContainer, { marginHorizontal: 0 }]}>
+          <BlurView
+            intensity={intensity}
+            tint={tint}
+            style={[styles.adminFabPill, { backgroundColor: pillBg }]}
+          >
+            <Pressable
+              style={styles.fabButton}
+              onPress={onFabPress}
+            >
+              <PlusIcon size={28} color="#FFFFFF" strokeWidth={1.5} />
+            </Pressable>
+          </BlurView>
+        </View>
+      </View>
+    );
+  }
+
+  // Regular User View (Floating Pill)
   return (
     <View style={styles.shadowContainer}>
       <BlurView
-        intensity={Platform.OS === 'android' ? 20 : 50} // Android blur is expensive
+        intensity={Platform.OS === 'android' ? 20 : 50}
         tint={theme.dark ? 'dark' : 'light'}
         style={styles.blurContainer}
       >

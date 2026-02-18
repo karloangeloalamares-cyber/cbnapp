@@ -22,7 +22,7 @@ export const ProfileScreen = () => {
     const navigation = useNavigation<any>();
     const { user, refreshProfile } = useAuth();
     const { theme } = useTheme();
-    const styles = useMemo(() => createStyles(), []);
+    const styles = useMemo(() => createStyles(theme), [theme]);
 
     const [loading, setLoading] = useState(false);
     const [displayName, setDisplayName] = useState('');
@@ -97,11 +97,12 @@ export const ProfileScreen = () => {
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
                 <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+                    {/* Using a text arrow for now, but could be an icon */}
                     <Text style={styles.backText}>←</Text>
                 </Pressable>
                 <Text style={styles.headerTitle}>Edit Profile</Text>
                 <Pressable onPress={() => navigation.navigate('Main', { screen: 'Settings' })} style={styles.settingsButton}>
-                    <SettingsIcon size={20} color="#FFFFFF" strokeWidth={1.8} />
+                    <SettingsIcon size={20} color={theme.colors.text} strokeWidth={1.8} />
                 </Pressable>
             </View>
 
@@ -125,6 +126,7 @@ export const ProfileScreen = () => {
                         style={[styles.input, styles.disabledInput]}
                         value={user?.email || ''}
                         editable={false}
+                        placeholderTextColor={theme.colors.textSecondary}
                     />
                 </View>
 
@@ -135,7 +137,7 @@ export const ProfileScreen = () => {
                         value={displayName}
                         onChangeText={setDisplayName}
                         placeholder="Enter display name"
-                        placeholderTextColor="#666666"
+                        placeholderTextColor={theme.colors.textSecondary}
                     />
                 </View>
 
@@ -151,11 +153,11 @@ export const ProfileScreen = () => {
     );
 };
 
-const createStyles = () =>
+const createStyles = (theme: any) =>
     StyleSheet.create({
         container: {
             flex: 1,
-            backgroundColor: '#000000',
+            backgroundColor: theme.colors.background,
         },
         header: {
             flexDirection: 'row',
@@ -173,13 +175,13 @@ const createStyles = () =>
         },
         backText: {
             fontSize: 24,
-            color: '#FFFFFF',
+            color: theme.colors.text,
             fontFamily: 'Inter',
         },
         headerTitle: {
             fontSize: 16,
             fontWeight: '600',
-            color: '#FFFFFF',
+            color: theme.colors.text,
             fontFamily: 'Inter',
         },
         content: {
@@ -199,29 +201,29 @@ const createStyles = () =>
             width: 104,
             height: 104,
             borderRadius: 52,
-            backgroundColor: '#333333',
+            backgroundColor: theme.colors.surface,
         },
         editBadge: {
             position: 'absolute',
             bottom: 0,
             right: 0,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: theme.colors.primary,
             borderRadius: 12,
             paddingHorizontal: 8,
             paddingVertical: 2,
             borderWidth: 2,
-            borderColor: '#000000',
+            borderColor: theme.colors.background,
         },
         editBadgeText: {
             fontSize: 10,
             fontWeight: '700',
-            color: '#000000',
+            color: '#FFFFFF',
             fontFamily: 'Inter',
             textTransform: 'uppercase',
         },
         changePhotoText: {
             fontSize: 14,
-            color: '#888888',
+            color: theme.colors.textSecondary,
             fontFamily: 'Inter',
         },
         fieldContainer: {
@@ -230,27 +232,27 @@ const createStyles = () =>
         label: {
             fontSize: 14,
             marginBottom: 8,
-            color: '#888888',
+            color: theme.colors.textSecondary,
             fontFamily: 'Inter',
         },
         input: {
-            backgroundColor: '#111111',
+            backgroundColor: theme.colors.inputBackground,
             borderRadius: 12,
             borderWidth: 1,
-            borderColor: '#333333',
+            borderColor: theme.colors.border,
             height: 56,
             justifyContent: 'center',
             paddingHorizontal: 16,
-            color: '#FFFFFF',
+            color: theme.colors.text,
             fontSize: 16,
             fontFamily: 'Inter',
         },
         disabledInput: {
             opacity: 0.7,
-            color: '#AAAAAA',
+            color: theme.colors.textSecondary,
         },
         button: {
-            backgroundColor: '#FFFFFF',
+            backgroundColor: theme.colors.primary,
             borderRadius: 12,
             height: 56,
             justifyContent: 'center',
@@ -261,10 +263,11 @@ const createStyles = () =>
             opacity: 0.7,
         },
         buttonText: {
-            color: '#000000',
+            color: '#FFFFFF',
             fontSize: 16,
             fontWeight: 'bold',
             fontFamily: 'Inter',
             letterSpacing: 0.5,
         },
     });
+
