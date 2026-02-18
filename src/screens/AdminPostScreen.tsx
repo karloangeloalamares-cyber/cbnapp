@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Alert, Platform, Image, KeyboardAvoidingView, ScrollView, Keyboard } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, Platform, Image, KeyboardAvoidingView, ScrollView, Keyboard, ActivityIndicator } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -33,6 +33,7 @@ export const AdminPostScreen = () => {
     const [title, setTitle] = useState('');
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [videoUri, setVideoUri] = useState<string | null>(null);
+    const [videoAspectRatio, setVideoAspectRatio] = useState(1.77);
     const [sending, setSending] = useState(false);
     const [messageSelection, setMessageSelection] = useState({ start: 0, end: 0 });
     const [inputFocused, setInputFocused] = useState(false);
@@ -174,7 +175,9 @@ export const AdminPostScreen = () => {
                     title.trim(),
                     message.trim(),
                     user!.id,
-                    user!.display_name
+                    user!.display_name,
+                    imageUri || undefined,
+                    videoUri || undefined
                 );
                 pushResult = await sendPush({
                     type: 'announcement_posted',
@@ -197,9 +200,9 @@ export const AdminPostScreen = () => {
                     navigation.goBack();
                 });
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to post:', error);
-            showAlert('Error', 'Failed to save post. Please check your connection.');
+            showAlert('Error', `Failed to save post: ${error.message || 'Unknown error'}`);
         } finally {
             setSending(false);
         }
@@ -469,7 +472,7 @@ export const AdminPostScreen = () => {
                         />
 
                         {/* Media Preview inside input area */}
-                        {isNews && (imageUri || videoUri) && (
+                        {(imageUri || videoUri) && (
                             <View style={styles.imagePreviewContainer}>
                                 {imageUri ? (
                                     <Image
@@ -480,11 +483,17 @@ export const AdminPostScreen = () => {
                                 ) : (
                                     <Video
                                         source={{ uri: videoUri! }}
-                                        style={styles.imagePreview}
+                                        style={[styles.imagePreview, { aspectRatio: videoAspectRatio }]}
                                         useNativeControls
                                         resizeMode={ResizeMode.CONTAIN}
                                         isLooping={false}
+                                        onReadyForDisplay={(videoData) => {
+                                            if (videoData.naturalSize.width && videoData.naturalSize.height) {
+                                                setVideoAspectRatio(videoData.naturalSize.width / videoData.naturalSize.height);
+                                            }
+                                        }}
                                     />
+
                                 )}
                                 <Pressable style={styles.removeButton} onPress={removeMedia}>
                                     <Text style={styles.removeButtonText}>✕</Text>
@@ -500,12 +509,15 @@ export const AdminPostScreen = () => {
                 { bottom: floatingBottom }
             ]}>
                 <Pressable
-                    style={[styles.postButton, (!message.trim() && !imageUri && !title.trim()) && styles.postButtonDisabled]}
+                    style={[styles.postButton, (sending || (!message.trim() && !imageUri && !title.trim())) && styles.postButtonDisabled]}
                     onPress={handleSend}
                     disabled={sending || (!message.trim() && !imageUri && !title.trim())}
                 >
-                    <Text style={styles.postButtonText}>{sending ? '...' : 'Post'}</Text>
-                    <SendPlaneIcon size={16} color="#FFFFFF" strokeWidth={2.5} />
+                    {sending && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 4 }} />}
+                    <Text style={styles.postButtonText}>
+                        {sending ? (imageUri || videoUri ? 'Uploading...' : 'Posting...') : 'Post'}
+                    </Text>
+                    {!sending && <SendPlaneIcon size={16} color="#FFFFFF" strokeWidth={2.5} />}
                 </Pressable>
             </View>
 

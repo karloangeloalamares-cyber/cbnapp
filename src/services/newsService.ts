@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { NewsArticle } from '../types';
+import { mediaService } from './mediaService';
 
 export const newsService = {
     getAll: async (): Promise<NewsArticle[]> => {
@@ -62,44 +63,14 @@ export const newsService = {
         let finalImageUrl = imageUrl;
         let finalVideoUrl = videoUrl;
 
-        const uploadMedia = async (uri: string) => {
-            if (!uri.startsWith('file://') && !uri.startsWith('content://')) return uri;
+        // Parallelize uploads if both are present
+        const [uploadImage, uploadVideo] = await Promise.all([
+            imageUrl ? mediaService.uploadMedia(imageUrl) : Promise.resolve(imageUrl),
+            videoUrl ? mediaService.uploadMedia(videoUrl) : Promise.resolve(videoUrl)
+        ]);
 
-            try {
-                const formData = new FormData();
-                const filename = uri.split('/').pop() || `upload-${Date.now()}`;
-                const ext = filename.split('.').pop()?.toLowerCase() || '';
-                const path = `${Date.now()}.${ext}`;
-
-                let contentType = 'application/octet-stream';
-                if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) {
-                    contentType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-                } else if (['mp4', 'mov', 'm4v'].includes(ext)) {
-                    contentType = `video/${ext === 'mov' ? 'quicktime' : (ext === 'm4v' ? 'x-m4v' : ext)}`;
-                }
-
-                formData.append('file', {
-                    uri,
-                    name: filename,
-                    type: contentType
-                } as any);
-
-                const { data, error } = await supabase.storage
-                    .from('cbn_app_media')
-                    .upload(path, formData, { contentType });
-
-                if (!error && data) {
-                    return supabase.storage.from('cbn_app_media').getPublicUrl(path).data.publicUrl;
-                }
-                if (error) console.error('Upload error', error);
-            } catch (e) {
-                console.error('Upload failed', e);
-            }
-            return undefined;
-        };
-
-        if (imageUrl) finalImageUrl = await uploadMedia(imageUrl);
-        if (videoUrl) finalVideoUrl = await uploadMedia(videoUrl);
+        finalImageUrl = uploadImage;
+        finalVideoUrl = uploadVideo;
 
         const { data, error } = await supabase
             .from('cbn_app_news')

@@ -722,13 +722,14 @@ export const NewsScreen = () => {
                         setLongPressedItemId(null);
                     }
                 }}
-                onShare={() => {
+                onForward={() => {
                     const item = news.find(n => n.id === longPressedItemId);
                     if (item) {
                         performShare([item]);
                         setLongPressedItemId(null);
                     }
                 }}
+
                 onCopy={async () => {
                     const article = news.find(n => n.id === longPressedItemId);
                     if (article) {

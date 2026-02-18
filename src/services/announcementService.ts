@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { Announcement } from '../types';
+import { mediaService } from './mediaService';
 
 export const announcementService = {
     getAll: async (): Promise<Announcement[]> => {
@@ -48,18 +49,45 @@ export const announcementService = {
         })) as Announcement[];
     },
 
-    create: async (title: string, content: string, authorId: string, authorName: string): Promise<Announcement> => {
+    create: async (
+        title: string,
+        content: string,
+        authorId: string,
+        authorName: string,
+        imageUrl?: string,
+        videoUrl?: string
+    ): Promise<Announcement> => {
+        let finalImageUrl = imageUrl;
+        let finalVideoUrl = videoUrl;
+
+        // Parallelize uploads if both are present
+        console.log('[AnnouncementService] Starting uploads...');
+        const [uploadImage, uploadVideo] = await Promise.all([
+            imageUrl ? mediaService.uploadMedia(imageUrl) : Promise.resolve(imageUrl),
+            videoUrl ? mediaService.uploadMedia(videoUrl) : Promise.resolve(videoUrl)
+        ]);
+
+        finalImageUrl = uploadImage;
+        finalVideoUrl = uploadVideo;
+
+        console.log('[AnnouncementService] Saving announcement with media:', { finalImageUrl, finalVideoUrl });
+
         const { data, error } = await supabase
             .from('cbn_app_announcements')
             .insert([{
                 title,
                 content,
+                image_url: finalImageUrl,
+                video_url: finalVideoUrl,
                 author_id: authorId
             }])
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('[AnnouncementService] Create error:', error);
+            throw error;
+        }
 
         return {
             ...data,

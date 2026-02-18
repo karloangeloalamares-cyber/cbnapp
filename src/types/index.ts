@@ -12,6 +12,8 @@ export interface Announcement {
   id: string;
   title: string;
   content: string;
+  image_url?: string;
+  video_url?: string;
   author_id: string;
   author_name: string;
   created_at: string;

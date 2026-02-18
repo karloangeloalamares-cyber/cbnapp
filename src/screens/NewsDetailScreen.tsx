@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image, Pressable, Linking, ScrollView } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NewsArticle } from '../types';
@@ -32,6 +33,9 @@ export const NewsDetailScreen = () => {
     const styles = useMemo(() => createStyles(theme), [theme]);
     const createdAtLabel = article?.created_at ? formatDateTime(article.created_at) : '';
 
+    const [videoAspectRatio, setVideoAspectRatio] = React.useState(1.77);
+
+
     const openLink = async () => {
         if (!article?.link_url) return;
         try {
@@ -56,6 +60,24 @@ export const NewsDetailScreen = () => {
                     {article?.image_url && (
                         <Image source={{ uri: article.image_url }} style={styles.image} resizeMode="cover" />
                     )}
+
+                    {article?.video_url && (
+                        <View style={[styles.videoContainer, { aspectRatio: videoAspectRatio }]}>
+                            <Video
+                                source={{ uri: article.video_url }}
+                                style={StyleSheet.absoluteFill}
+                                useNativeControls
+                                resizeMode={ResizeMode.CONTAIN}
+                                isLooping={false}
+                                onReadyForDisplay={(videoData) => {
+                                    if (videoData.naturalSize.width && videoData.naturalSize.height) {
+                                        setVideoAspectRatio(videoData.naturalSize.width / videoData.naturalSize.height);
+                                    }
+                                }}
+                            />
+                        </View>
+                    )}
+
 
                     {article?.content ? <FormattedText text={article.content} style={styles.contentText} /> : null}
 
@@ -120,6 +142,14 @@ const createStyles = (theme: any) =>
             borderRadius: 12,
             marginBottom: 16,
         },
+        videoContainer: {
+            width: '100%',
+            borderRadius: 12,
+            backgroundColor: '#000',
+            marginBottom: 16,
+            overflow: 'hidden',
+        },
+
         contentText: {
             ...theme.typography.postTextRegular,
             color: theme.colors.text,

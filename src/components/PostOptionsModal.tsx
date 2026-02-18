@@ -7,7 +7,7 @@ interface PostOptionsModalProps {
     visible: boolean;
     onClose: () => void;
     onSave: () => void;
-    onShare: () => void;
+    onForward: () => void;
     onCopy: () => void;
     onEdit?: () => void;
     onDelete?: () => void;
@@ -19,7 +19,7 @@ export const PostOptionsModal = ({
     visible,
     onClose,
     onSave,
-    onShare,
+    onForward,
     onCopy,
     onEdit,
     onDelete,
@@ -52,8 +52,8 @@ export const PostOptionsModal = ({
                                 </>
                             )}
 
-                            <TouchableOpacity style={styles.menuItem} onPress={onShare}>
-                                <Text style={styles.menuText}>Share</Text>
+                            <TouchableOpacity style={styles.menuItem} onPress={onForward}>
+                                <Text style={styles.menuText}>Forward</Text>
                                 <ForwardIcon size={20} color={theme.colors.text} />
                             </TouchableOpacity>
 

@@ -430,6 +430,8 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
             <MessageCard
                 title={item.title || undefined}
                 content={item.content}
+                image_url={item.image_url}
+                video_url={item.video_url}
                 created_at={item.created_at}
                 author_name={item.author_name || 'Announcement'}
                 variant="announcement"
@@ -564,13 +566,14 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                         setLongPressedItemId(null);
                     }
                 }}
-                onShare={() => {
+                onForward={() => {
                     const item = announcements.find(a => a.id === longPressedItemId);
                     if (item) {
                         performShare([item]);
                         setLongPressedItemId(null);
                     }
                 }}
+
                 onCopy={async () => {
                     const item = announcements.find(a => a.id === longPressedItemId);
                     if (item) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, StyleSheet, Platform, TextStyle, StyleProp, View } from 'react-native';
+import { Text, StyleSheet, Platform, TextStyle, StyleProp, View, Linking } from 'react-native';
 
 type SegmentStyle = 'bold' | 'italic' | 'strike' | 'underline' | 'mono';
 

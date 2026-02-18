@@ -77,8 +77,14 @@ export const NavigationBar = ({
       ),
     },
     {
+      key: 'create' as any, // Cast to avoid type error if NavItem key is strict
+      name: 'Create' as any,
+      route: '', // No route, special handler
+      icon: (color: string) => <PlusIcon size={28} color="#FFFFFF" strokeWidth={1.5} />,
+    },
+    {
       key: 'stats',
-      name: 'Stats', // Placeholder name if you want
+      name: 'Stats',
       route: 'Stats',
       icon: (color: string) => <StatsIcon size={22} color={color} strokeWidth={1.5} />,
     },
@@ -126,11 +132,6 @@ export const NavigationBar = ({
   ];
 
   // Figma Design: Light grey pill, dark icons (even in dark mode)
-  const bgColor = '#E5E7EB'; // Light grey
-  const itemBgColor = 'transparent';
-  const inactiveColor = '#4B5563'; // Dark grey
-  const activeColor = '#000000'; // Black
-
   const styles = StyleSheet.create({
     container: {
       position: 'absolute', // Ensure it sits on top
@@ -151,8 +152,7 @@ export const NavigationBar = ({
       shadowOpacity: 0.2, // Increased shadow for better contrast with glass
       shadowRadius: 10,
       elevation: 5,
-      backgroundColor: 'transparent', // Important for shadow to show but not block blur? Actually bg needed for shadow usually.
-      // For glassmorphism, we usually need a container for shadow and one for blur/overflow
+      backgroundColor: 'transparent',
     },
     blurContainer: {
       flexDirection: 'row',
@@ -161,8 +161,7 @@ export const NavigationBar = ({
       paddingHorizontal: 20,
       paddingVertical: 17,
       borderRadius: 100,
-      backgroundColor: isAdmin ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.2)', // Both seem to use 20% black based on recent feedback/SVG, but user specifically sent black 0.2 for Admin.
-      // Actually standard design might be different. Let's explicitly check isAdmin for the style.
+      backgroundColor: isAdmin ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.2)',
       overflow: 'hidden', // Required for BlurView radius
       width: '100%',
     },
@@ -188,44 +187,13 @@ export const NavigationBar = ({
       alignItems: 'center',
       paddingHorizontal: 2,
       borderWidth: 1.5,
-      borderColor: 'transparent', // Transparent border for badge
+      borderColor: 'transparent',
     },
     badgeText: {
       fontSize: 10,
       color: '#FFFFFF',
       fontWeight: '700',
       fontFamily: 'Inter',
-    },
-    // Admin Specific Styles
-    adminWrapper: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: insets.bottom + 20, // Dynamic safe area (Edge-to-Edge) + padding
-      zIndex: 1000,
-    },
-    adminNavPill: {
-      width: 250,
-      height: 84,
-      borderRadius: 42,
-      backgroundColor: 'rgba(0, 0, 0, 0.2)',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 25,
-      marginRight: 10, // Gap between pill and FAB
-    },
-    adminFabPill: {
-      width: 84,
-      height: 84,
-      borderRadius: 42,
-      backgroundColor: 'rgba(0, 0, 0, 0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     fabButton: {
       width: 50,
@@ -241,48 +209,68 @@ export const NavigationBar = ({
       shadowRadius: 4.65,
       elevation: 8,
     },
+    adminWrapper: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: insets.bottom + 20, // Dynamic safe area (Edge-to-Edge) + padding
+      zIndex: 1000,
+    },
   });
 
   if (isAdmin) {
-    const tint = theme.dark ? 'dark' : 'light';
-    const intensity = Platform.OS === 'android' ? 20 : 50;
-    const pillBg = theme.dark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)';
+    const adminNavItems = [
+      navItems.find(i => i.key === 'home')!,
+      navItems.find(i => i.key === 'announcements')!,
+      navItems.find(i => i.key === 'stats')!,
+      navItems.find(i => i.key === 'settings')!,
+    ].filter(Boolean);
 
     return (
       <View style={styles.adminWrapper}>
-        {/* Navigation Pill (250x84) */}
-        <View style={[styles.shadowContainer, { marginHorizontal: 0, marginRight: 10 }]}>
+        {/* Navigation Pill */}
+        <View style={[styles.shadowContainer, { marginHorizontal: 0, marginRight: 15, borderRadius: 100 }]}>
           <BlurView
-            intensity={intensity}
-            tint={tint}
-            style={[styles.adminNavPill, { backgroundColor: pillBg }]}
+            intensity={Platform.OS === 'android' ? 20 : 50}
+            tint={theme.dark ? 'dark' : 'light'}
+            style={[styles.blurContainer, { width: 'auto', paddingHorizontal: 15, gap: 5 }]}
           >
-            {navItems.map((item) => {
+            {adminNavItems.map((item) => {
               const active = isActive(item);
-              const iconColor = '#FFFFFF';
-
               return (
                 <Pressable
                   key={item.key}
                   style={[styles.navItem, active && styles.activeItem]}
                   onPress={() => {
-                    if (onItemPress) { onItemPress(item.key); return; }
+                    if (onItemPress) { onItemPress(item.key as NavigationBarItem); return; }
                     if (item.route && canNavigateTo(item.route)) navigation.navigate(item.route);
                   }}
                 >
-                  {item.icon(iconColor)}
+                  {item.icon('#FFFFFF')}
                 </Pressable>
               );
             })}
           </BlurView>
         </View>
 
-        {/* FAB Pill (84x84) */}
-        <View style={[styles.shadowContainer, { marginHorizontal: 0 }]}>
+        {/* FAB Pill */}
+        <View style={[styles.shadowContainer, { marginHorizontal: 0, borderRadius: 42 }]}>
           <BlurView
-            intensity={intensity}
-            tint={tint}
-            style={[styles.adminFabPill, { backgroundColor: pillBg }]}
+            intensity={Platform.OS === 'android' ? 20 : 50}
+            tint={theme.dark ? 'dark' : 'light'}
+            style={{
+              width: 84,
+              height: 84,
+              borderRadius: 42,
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: isAdmin ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+              overflow: 'hidden'
+            }}
           >
             <Pressable
               style={styles.fabButton}
@@ -296,7 +284,6 @@ export const NavigationBar = ({
     );
   }
 
-  // Regular User View (Floating Pill)
   return (
     <View style={styles.shadowContainer}>
       <BlurView
@@ -306,14 +293,29 @@ export const NavigationBar = ({
       >
         {navItems.map((item) => {
           const active = isActive(item);
-          const iconColor = '#FFFFFF'; // All icons white (from Figma)
+          // For the 'create' button (admin), we might want a special style?
+          // The user requested "very similar to the user side", so we keep uniformity mostly.
+          // But 'create' is a primary action. Let's make it standout slightly?
+          // Actually, let's keep it uniform as per "copy that design".
+
+          /* Special handling for 'Create' item styling if desired */
+          const isCreate = item.key === ('create' as any);
 
           return (
             <Pressable
               key={item.key}
-              style={[styles.navItem, active && styles.activeItem]}
+              style={[
+                styles.navItem,
+                active && !isCreate && styles.activeItem,
+                isCreate && styles.fabButton // Reuse reusable FAB style for the create button inside the bar
+              ]}
               onPress={() => {
-                if (onItemPress) {
+                if (isCreate) {
+                  onFabPress?.();
+                  return;
+                }
+
+                if (onItemPress && item.key !== ('create' as any)) {
                   onItemPress(item.key);
                   return;
                 }
@@ -323,7 +325,7 @@ export const NavigationBar = ({
                 }
               }}
             >
-              {item.icon(iconColor)}
+              {item.icon('#FFFFFF')}
               {item.key === 'notifications' && unreadCount > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>

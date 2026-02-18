@@ -1,10 +1,10 @@
-
 import {
   View,
   Text,
   StyleSheet,
-  Image,
   Pressable,
+  Platform,
+  Dimensions,
   Linking,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
@@ -12,6 +12,9 @@ import { FormattedText } from './FormattedText';
 import { FilterIcon } from './Icons';
 import { LinkPreview } from './LinkPreview';
 import { Video, ResizeMode } from 'expo-av';
+import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
+import React, { useState, useEffect } from 'react';
 
 interface MessageCardProps {
   title?: string;
@@ -58,6 +61,10 @@ export const MessageCard = ({
   isSelected = false,
 }: MessageCardProps) => {
   const { theme } = useTheme();
+  const [imageAspectRatio, setImageAspectRatio] = useState(1.5); // Default to 3:2
+  const [videoAspectRatio, setVideoAspectRatio] = useState(1.77); // Default to 16:9
+
+  // Image aspect ratio handling handled by expo-image onLoad
 
   const handleLinkPress = async () => {
     if (link_url) {
@@ -131,12 +138,12 @@ export const MessageCard = ({
     },
     imageContainer: {
       width: '100%',
-      height: 208,
-      borderRadius: 10,
+      // height removed to allow aspectRatio to drive it
+      borderRadius: 12,
       overflow: 'hidden',
       marginTop: 4,
       marginBottom: 10,
-      backgroundColor: theme.dark ? '#1E1E1E' : '#F2F2F7', // Subtle background for contain mode
+      backgroundColor: theme.dark ? '#1E1E1E' : '#F2F2F7',
     },
     image: {
       width: '100%',
@@ -145,10 +152,41 @@ export const MessageCard = ({
     },
     video: {
       width: '100%',
-      height: 208,
-      borderRadius: 10,
+      // height removed
+      borderRadius: 12,
       marginTop: 4,
       marginBottom: 10,
+      backgroundColor: '#000', // Black background for video
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    videoOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1,
+    },
+    playButtonBlur: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      overflow: 'hidden',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    playIcon: {
+      width: 0,
+      height: 0,
+      backgroundColor: 'transparent',
+      borderStyle: 'solid',
+      borderLeftWidth: 15,
+      borderTopWidth: 10,
+      borderBottomWidth: 10,
+      borderLeftColor: '#FFFFFF',
+      borderTopColor: 'transparent',
+      borderBottomColor: 'transparent',
+      marginLeft: 4,
     },
     linkContainer: {
       paddingHorizontal: 10,
@@ -203,12 +241,6 @@ export const MessageCard = ({
     },
   });
 
-  const renderAnnouncement = () => (
-    <>
-      {title ? <FormattedText text={title} style={styles.announcementTitle} /> : null}
-      <FormattedText text={content} style={styles.announcementBody} />
-    </>
-  );
 
   return (
     <Pressable
@@ -238,40 +270,58 @@ export const MessageCard = ({
 
         </View>
 
-        {isAnnouncement ? (
-          renderAnnouncement()
-        ) : (
-          <>
-            {image_url && (
-              <View style={styles.imageContainer}>
-                <Image
-                  source={{ uri: image_url }}
-                  style={styles.image}
-                />
-              </View>
-            )}
+        {isAnnouncement && title ? <FormattedText text={title} style={styles.announcementTitle} /> : null}
 
-            {video_url && (
-              <Video
-                source={{ uri: video_url }}
-                style={styles.video}
-                useNativeControls
-                resizeMode={ResizeMode.CONTAIN}
-                isLooping={false}
-              />
-            )}
+        {image_url && (
+          <View style={[styles.imageContainer, { aspectRatio: imageAspectRatio }]}>
+            <Image
+              source={image_url}
+              style={styles.image}
+              contentFit="cover"
+              transition={200}
+              onError={(e) => console.log('[MessageCard] ExpoImage Error:', e.error, image_url)}
+              onLoad={(e) => {
+                console.log('[MessageCard] ExpoImage Loaded:', image_url);
+                if (e.source.width && e.source.height) {
+                  setImageAspectRatio(e.source.width / e.source.height);
+                }
+              }}
+            />
+          </View>
+        )}
 
-            <FormattedText text={content} style={styles.textContent} />
+        {video_url && (
+          <View style={[styles.video, { aspectRatio: videoAspectRatio }]}>
+            <Video
+              source={{ uri: video_url }}
+              style={StyleSheet.absoluteFill}
+              useNativeControls={false}
+              resizeMode={ResizeMode.CONTAIN}
+              isLooping={false}
+              shouldPlay={false}
+              onReadyForDisplay={(videoData) => {
+                if (videoData.naturalSize.width && videoData.naturalSize.height) {
+                  setVideoAspectRatio(videoData.naturalSize.width / videoData.naturalSize.height);
+                }
+              }}
+            />
+            <View style={styles.videoOverlay} pointerEvents="none">
+              <BlurView intensity={30} tint="light" style={styles.playButtonBlur}>
+                <View style={styles.playIcon} />
+              </BlurView>
+            </View>
+          </View>
+        )}
 
-            {link_url && (
-              <View style={styles.linkContainer}>
-                {link_text && <Text style={styles.linkTitle}>{link_text}</Text>}
-                <Pressable onPress={handleLinkPress}>
-                  <Text style={styles.linkUrl}>{link_url}</Text>
-                </Pressable>
-              </View>
-            )}
-          </>
+        <FormattedText text={content} style={isAnnouncement ? styles.announcementBody : styles.textContent} />
+
+        {link_url && (
+          <View style={styles.linkContainer}>
+            {link_text && <Text style={styles.linkTitle}>{link_text}</Text>}
+            <Pressable onPress={handleLinkPress}>
+              <Text style={styles.linkUrl}>{link_url}</Text>
+            </Pressable>
+          </View>
         )}
 
         <View style={styles.footerRow}>

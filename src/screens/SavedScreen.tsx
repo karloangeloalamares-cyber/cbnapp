@@ -211,6 +211,7 @@ export const SavedScreen = () => {
                 <MessageCard
                     content={item.article.content || ''}
                     image_url={item.article.image_url}
+                    video_url={item.article.video_url}
                     link_url={item.article.link_url}
                     link_text={item.article.link_text}
                     created_at={item.article.created_at}
