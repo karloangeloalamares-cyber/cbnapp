@@ -10,7 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 import { FormattedText } from './FormattedText';
 import { FilterIcon } from './Icons';
 import { LinkPreview } from './LinkPreview';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode, AVPlaybackStatus, VideoFullscreenUpdate, VideoFullscreenUpdateEvent } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -66,6 +66,7 @@ export const MessageCard = ({
 
   // Track whether aspect ratio has been set to prevent re-render loops
   const aspectRatioSet = useRef(false);
+  const videoRef = useRef<Video>(null);
 
   // Memoize source objects so they are referentially stable
   const imageSource = useMemo(
@@ -168,7 +169,6 @@ export const MessageCard = ({
           marginBottom: 10,
           backgroundColor: '#000',
           position: 'relative',
-          overflow: 'hidden',
         },
         videoOverlay: {
           ...StyleSheet.absoluteFillObject,
@@ -184,6 +184,22 @@ export const MessageCard = ({
           justifyContent: 'center',
           alignItems: 'center',
           backgroundColor: 'rgba(0,0,0,0.4)',
+        },
+        fullscreenButton: {
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          borderRadius: 6,
+          width: 32,
+          height: 32,
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10,
+        },
+        fullscreenIcon: {
+          color: '#FFFFFF',
+          fontSize: 18,
         },
         playIcon: {
           width: 0,
@@ -288,6 +304,26 @@ export const MessageCard = ({
     }
   }, []);
 
+  // Open the system's full-featured fullscreen player
+  const handleFullscreen = useCallback(async () => {
+    if (videoRef.current) {
+      try {
+        await videoRef.current.playAsync();
+        setIsPlaying(true);
+        await videoRef.current.presentFullscreenPlayer();
+      } catch (e) {
+        console.warn('Fullscreen failed:', e);
+      }
+    }
+  }, []);
+
+  // When user exits fullscreen, pause inline playback
+  const handleFullscreenUpdate = useCallback((event: VideoFullscreenUpdateEvent) => {
+    if (event.fullscreenUpdate === VideoFullscreenUpdate.PLAYER_DID_DISMISS) {
+      setIsPlaying(false);
+    }
+  }, []);
+
   return (
     <Pressable
       onPress={onPress}
@@ -332,14 +368,12 @@ export const MessageCard = ({
         )}
 
         {video_url && (
-          <Pressable
-            style={[styles.video, { aspectRatio: videoAspectRatio }]}
-            onPress={() => setIsPlaying(!isPlaying)}
-          >
+          <View style={[styles.video, { aspectRatio: videoAspectRatio }]}>
             <Video
+              ref={videoRef}
               source={videoSource!}
               style={StyleSheet.absoluteFill}
-              useNativeControls={false}
+              useNativeControls={true}
               resizeMode={ResizeMode.CONTAIN}
               isLooping={false}
               shouldPlay={isPlaying}
@@ -348,15 +382,27 @@ export const MessageCard = ({
               posterStyle={{ resizeMode: 'cover' }}
               onReadyForDisplay={handleVideoReadyForDisplay}
               onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+              onFullscreenUpdate={handleFullscreenUpdate}
             />
             {!isPlaying && (
-              <View style={styles.videoOverlay} pointerEvents="none">
+              <Pressable
+                style={styles.videoOverlay}
+                onPress={() => setIsPlaying(true)}
+              >
                 <BlurView intensity={30} tint="light" style={styles.playButtonBlur}>
                   <View style={styles.playIcon} />
                 </BlurView>
-              </View>
+              </Pressable>
             )}
-          </Pressable>
+            {/* Fullscreen expand button — top-right corner */}
+            <Pressable
+              style={styles.fullscreenButton}
+              onPress={handleFullscreen}
+              hitSlop={10}
+            >
+              <Text style={styles.fullscreenIcon}>⛶</Text>
+            </Pressable>
+          </View>
         )}
 
         <FormattedText text={content} style={isAnnouncement ? styles.announcementBody : styles.textContent} />
