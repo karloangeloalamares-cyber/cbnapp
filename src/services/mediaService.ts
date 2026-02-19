@@ -2,6 +2,21 @@ import { supabase } from './supabaseClient';
 // @ts-ignore
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
+import * as ImageManipulator from 'expo-image-manipulator';
+
+const compressImage = async (uri: string): Promise<string> => {
+    try {
+        const result = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 1080 } }],
+            { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        return result.uri;
+    } catch (error) {
+        console.warn('[MediaService] Image compression failed, using original:', error);
+        return uri;
+    }
+};
 
 export const mediaService = {
     uploadMedia: async (uri: string): Promise<string | undefined> => {
@@ -10,12 +25,24 @@ export const mediaService = {
         try {
             console.log(`[MediaService] Starting robust upload for: ${uri}`);
 
+            let uploadUri = uri;
+
+            // Check if it's likely an image to compress
+            const isImage = /\.(jpg|jpeg|png|heic|bmp|webp)$/i.test(uri);
+            if (isImage) {
+                console.log('[MediaService] Detected image, attempting compression...');
+                uploadUri = await compressImage(uri);
+            }
+
             // 0. Pre-check file size to avoid memory crashes
-            const fileInfo = await FileSystem.getInfoAsync(uri);
+            const fileInfo = await FileSystem.getInfoAsync(uploadUri);
             if (!fileInfo.exists) {
+                // If compressed file doesn't exist (weird), fallback to original? 
+                // Checks should be robust.
                 throw new Error('File does not exist');
             }
 
+            // If we compressed it, it should be small. If it's a video, check limit.
             const MAX_SIZE_MB = 50;
             const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
@@ -25,7 +52,7 @@ export const mediaService = {
             }
 
             // 1. Read file as Base64 string
-            const base64 = await FileSystem.readAsStringAsync(uri, {
+            const base64 = await FileSystem.readAsStringAsync(uploadUri, {
                 encoding: 'base64',
             });
 
@@ -39,18 +66,19 @@ export const mediaService = {
             }
 
             // 3. Generate filename
-            const filename = uri.split('/').pop() || `upload-${Date.now()}`;
-            const ext = filename.split('.').pop()?.toLowerCase() || '';
-            const path = `${Date.now()}-${Math.floor(Math.random() * 10000)}.${ext}`;
+            // Use original extension if possible or jpg if compressed
+            const originalExt = uri.split('.').pop()?.toLowerCase() || '';
+            const finalExt = isImage ? 'jpg' : originalExt;
+            const path = `${Date.now()}-${Math.floor(Math.random() * 10000)}.${finalExt}`;
 
             // 4. Determine Content-Type
             let contentType = 'application/octet-stream';
-            if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) {
-                contentType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-            } else if (['mp4', 'mov', 'm4v', '3gp', 'mkv'].includes(ext)) {
-                if (ext === 'mov') contentType = 'video/quicktime';
-                else if (ext === 'm4v') contentType = 'video/x-m4v';
-                else contentType = `video/${ext}`;
+            if (isImage) {
+                contentType = 'image/jpeg'; // Since we convert to JPEG
+            } else if (['mp4', 'mov', 'm4v', '3gp', 'mkv'].includes(originalExt)) {
+                if (originalExt === 'mov') contentType = 'video/quicktime';
+                else if (originalExt === 'm4v') contentType = 'video/x-m4v';
+                else contentType = `video/${originalExt}`;
             }
 
             // 5. Upload ArrayBuffer to Supabase

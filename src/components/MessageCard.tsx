@@ -3,7 +3,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Platform,
   Dimensions,
   Linking,
 } from 'react-native';
@@ -14,7 +13,7 @@ import { LinkPreview } from './LinkPreview';
 import { Video, ResizeMode } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
 interface MessageCardProps {
   title?: string;
@@ -61,20 +60,31 @@ export const MessageCard = ({
   isSelected = false,
 }: MessageCardProps) => {
   const { theme } = useTheme();
-  const [imageAspectRatio, setImageAspectRatio] = useState(1.5); // Default to 3:2
-  const [videoAspectRatio, setVideoAspectRatio] = useState(1.77); // Default to 16:9
+  const [imageAspectRatio, setImageAspectRatio] = useState(1.5);
+  const [videoAspectRatio, setVideoAspectRatio] = useState(1.77);
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  // Image aspect ratio handling handled by expo-image onLoad
+  // Track whether aspect ratio has been set to prevent re-render loops
+  const aspectRatioSet = useRef(false);
 
-  const handleLinkPress = async () => {
-    if (link_url) {
-      try {
-        await Linking.openURL(link_url);
-      } catch (error) {
-        console.warn('Unable to open URL', error);
-      }
-    }
-  };
+  // Memoize source objects so they are referentially stable
+  const imageSource = useMemo(
+    () => (image_url ? { uri: image_url } : undefined),
+    [image_url]
+  );
+  const videoSource = useMemo(
+    () => (video_url ? { uri: video_url } : undefined),
+    [video_url]
+  );
+  const posterSource = useMemo(
+    () => (image_url ? { uri: image_url } : undefined),
+    [image_url]
+  );
+
+  // Reset the aspect-ratio guard when the image URL changes
+  useEffect(() => {
+    aspectRatioSet.current = false;
+  }, [image_url]);
 
   const cardBgColor = theme.colors.cardBackground || theme.colors.surface;
   const textColor = theme.colors.text;
@@ -82,165 +92,201 @@ export const MessageCard = ({
   const isAnnouncement = variant === 'announcement';
   const isSponsored = variant === 'sponsored';
 
-  const styles = StyleSheet.create({
-    container: {
-      backgroundColor: cardBgColor,
-      borderRadius: 12,
-      padding: 4,
-      marginVertical: 6,
-      borderWidth: isSelected ? 1 : 0,
-      borderColor: isSelected ? theme.colors.primary : 'transparent',
-    },
-    contentContainer: {
-      paddingTop: 0,
-    },
-    headerContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      marginBottom: 4,
-    },
-    avatar: {
-      width: 31,
-      height: 29,
-      borderRadius: 6,
-      marginRight: 8,
-    },
-    headerTextContainer: {
-      flex: 1,
-    },
-    adminName: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: secondaryTextColor,
-      fontFamily: 'Inter',
-    },
-    sponsoredBadge: {
-      backgroundColor: '#000000',
-      paddingHorizontal: 9,
-      paddingVertical: 6,
-      borderRadius: 100,
-    },
-    sponsoredText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#FFFFFF',
-      fontFamily: 'Inter',
-    },
+  // ── Memoized styles ──────────────────────────────────────────────
+  // Only recalculated when theme, isSelected, variant, or colors change.
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          backgroundColor: cardBgColor,
+          borderRadius: 12,
+          padding: 4,
+          marginVertical: 6,
+          borderWidth: isSelected ? 1 : 0,
+          borderColor: isSelected ? theme.colors.primary : 'transparent',
+        },
+        contentContainer: {
+          paddingTop: 0,
+        },
+        headerContainer: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 10,
+          paddingVertical: 8,
+          marginBottom: 4,
+        },
+        avatar: {
+          width: 31,
+          height: 29,
+          borderRadius: 6,
+          marginRight: 8,
+        },
+        headerTextContainer: {
+          flex: 1,
+        },
+        adminName: {
+          fontSize: 12,
+          fontWeight: '600',
+          color: secondaryTextColor,
+          fontFamily: 'Inter',
+        },
+        sponsoredBadge: {
+          backgroundColor: '#000000',
+          paddingHorizontal: 9,
+          paddingVertical: 6,
+          borderRadius: 100,
+        },
+        sponsoredText: {
+          fontSize: 12,
+          fontWeight: '600',
+          color: '#FFFFFF',
+          fontFamily: 'Inter',
+        },
+        textContent: {
+          ...theme.typography.postTextRegular,
+          color: textColor,
+          marginTop: 4,
+          marginBottom: 10,
+          paddingHorizontal: 10,
+        },
+        imageContainer: {
+          width: '100%',
+          borderRadius: 12,
+          overflow: 'hidden',
+          marginTop: 4,
+          marginBottom: 10,
+          backgroundColor: theme.dark ? '#1E1E1E' : '#F2F2F7',
+        },
+        image: {
+          width: '100%',
+          height: '100%',
+        },
+        video: {
+          width: '100%',
+          borderRadius: 12,
+          marginTop: 4,
+          marginBottom: 10,
+          backgroundColor: '#000',
+          position: 'relative',
+          overflow: 'hidden',
+        },
+        videoOverlay: {
+          ...StyleSheet.absoluteFillObject,
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1,
+        },
+        playButtonBlur: {
+          width: 50,
+          height: 50,
+          borderRadius: 25,
+          overflow: 'hidden',
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: 'rgba(0,0,0,0.4)',
+        },
+        playIcon: {
+          width: 0,
+          height: 0,
+          backgroundColor: 'transparent',
+          borderStyle: 'solid',
+          borderLeftWidth: 15,
+          borderTopWidth: 10,
+          borderBottomWidth: 10,
+          borderLeftColor: '#FFFFFF',
+          borderTopColor: 'transparent',
+          borderBottomColor: 'transparent',
+          marginLeft: 4,
+        },
+        linkContainer: {
+          paddingHorizontal: 10,
+          marginBottom: 4,
+        },
+        linkTitle: {
+          ...theme.typography.postTextBold,
+          color: textColor,
+          marginBottom: 4,
+        },
+        linkUrl: {
+          ...theme.typography.postLink,
+          color: '#20B65E',
+          textDecorationLine: 'underline',
+        },
+        footerRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          paddingHorizontal: 10,
+          paddingTop: 6,
+          paddingBottom: 8,
+          gap: 10,
+        },
+        reactionsContainer: {
+          flex: 1,
+          alignItems: 'flex-start',
+        },
+        metaRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        },
+        metaText: {
+          fontSize: 10,
+          fontWeight: '600',
+          color: secondaryTextColor,
+          fontFamily: 'Inter',
+        },
+        announcementTitle: {
+          ...theme.typography.postTextBold,
+          color: textColor,
+          marginTop: 4,
+          marginBottom: 8,
+          paddingHorizontal: 10,
+        },
+        announcementBody: {
+          ...theme.typography.postTextRegular,
+          color: textColor,
+          paddingHorizontal: 10,
+          paddingBottom: 8,
+        },
+      }),
+    [theme, isSelected, cardBgColor, textColor, secondaryTextColor]
+  );
 
-    textContent: {
-      ...theme.typography.postTextRegular,
-      color: textColor,
-      marginTop: 4,
-      marginBottom: 10,
-      paddingHorizontal: 10,
-    },
-    imageContainer: {
-      width: '100%',
-      // height removed to allow aspectRatio to drive it
-      borderRadius: 12,
-      overflow: 'hidden',
-      marginTop: 4,
-      marginBottom: 10,
-      backgroundColor: theme.dark ? '#1E1E1E' : '#F2F2F7',
-    },
-    image: {
-      width: '100%',
-      height: '100%',
-      resizeMode: 'contain',
-    },
-    video: {
-      width: '100%',
-      // height removed
-      borderRadius: 12,
-      marginTop: 4,
-      marginBottom: 10,
-      backgroundColor: '#000', // Black background for video
-      position: 'relative',
-      overflow: 'hidden',
-    },
-    videoOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 1,
-    },
-    playButtonBlur: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
-      overflow: 'hidden',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'rgba(0,0,0,0.4)',
-    },
-    playIcon: {
-      width: 0,
-      height: 0,
-      backgroundColor: 'transparent',
-      borderStyle: 'solid',
-      borderLeftWidth: 15,
-      borderTopWidth: 10,
-      borderBottomWidth: 10,
-      borderLeftColor: '#FFFFFF',
-      borderTopColor: 'transparent',
-      borderBottomColor: 'transparent',
-      marginLeft: 4,
-    },
-    linkContainer: {
-      paddingHorizontal: 10,
-      marginBottom: 4,
-    },
-    linkTitle: {
-      ...theme.typography.postTextBold,
-      color: textColor,
-      marginBottom: 4,
-    },
-    linkUrl: {
-      ...theme.typography.postLink,
-      color: '#20B65E',
-      textDecorationLine: 'underline',
-    },
-    footerRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-end',
-      paddingHorizontal: 10,
-      paddingTop: 6,
-      paddingBottom: 8,
-      gap: 10,
-    },
-    reactionsContainer: {
-      flex: 1,
-      alignItems: 'flex-start',
-    },
-    metaRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    metaText: {
-      fontSize: 10,
-      fontWeight: '600',
-      color: secondaryTextColor,
-      fontFamily: 'Inter',
-    },
-    announcementTitle: {
-      ...theme.typography.postTextBold,
-      color: textColor,
-      marginTop: 4,
-      marginBottom: 8,
-      paddingHorizontal: 10,
-    },
-    announcementBody: {
-      ...theme.typography.postTextRegular,
-      color: textColor,
-      paddingHorizontal: 10,
-      paddingBottom: 8,
-    },
-  });
+  // ── Stable callbacks ─────────────────────────────────────────────
+  const handleLinkPress = useCallback(async () => {
+    if (link_url) {
+      try {
+        await Linking.openURL(link_url);
+      } catch (error) {
+        console.warn('Unable to open URL', error);
+      }
+    }
+  }, [link_url]);
 
+  // Guard: only update aspect ratio ONCE per image URL to break the loop
+  const handleImageLoad = useCallback(
+    (e: any) => {
+      if (aspectRatioSet.current) return;          // already set – skip
+      if (e.source.width && e.source.height) {
+        aspectRatioSet.current = true;
+        setImageAspectRatio(e.source.width / e.source.height);
+      }
+    },
+    [] // no deps needed – uses ref
+  );
+
+  const handleVideoReadyForDisplay = useCallback((videoData: any) => {
+    if (videoData.naturalSize.width && videoData.naturalSize.height) {
+      setVideoAspectRatio(videoData.naturalSize.width / videoData.naturalSize.height);
+    }
+  }, []);
+
+  const handlePlaybackStatusUpdate = useCallback((status: any) => {
+    if (status.isLoaded && status.didJustFinish) {
+      setIsPlaying(false);
+    }
+  }, []);
 
   return (
     <Pressable
@@ -258,6 +304,7 @@ export const MessageCard = ({
             source={require('../../assets/CBN_Logo-removebg-preview.png')}
             style={styles.avatar}
             resizeMode="contain"
+            cachePolicy="memory-disk"
           />
           <View style={styles.headerTextContainer}>
             <Text style={styles.adminName}>{author_name}</Text>
@@ -267,50 +314,49 @@ export const MessageCard = ({
               <Text style={styles.sponsoredText}>Sponsored Post</Text>
             </View>
           )}
-
         </View>
 
         {isAnnouncement && title ? <FormattedText text={title} style={styles.announcementTitle} /> : null}
 
-        {image_url && (
+        {image_url && !video_url && (
           <View style={[styles.imageContainer, { aspectRatio: imageAspectRatio }]}>
             <Image
-              source={image_url}
+              source={imageSource}
               style={styles.image}
               contentFit="cover"
-              transition={200}
-              onError={(e) => console.log('[MessageCard] ExpoImage Error:', e.error, image_url)}
-              onLoad={(e) => {
-                console.log('[MessageCard] ExpoImage Loaded:', image_url);
-                if (e.source.width && e.source.height) {
-                  setImageAspectRatio(e.source.width / e.source.height);
-                }
-              }}
+              cachePolicy="memory-disk"
+              recyclingKey={image_url}
+              onLoad={handleImageLoad}
             />
           </View>
         )}
 
         {video_url && (
-          <View style={[styles.video, { aspectRatio: videoAspectRatio }]}>
+          <Pressable
+            style={[styles.video, { aspectRatio: videoAspectRatio }]}
+            onPress={() => setIsPlaying(!isPlaying)}
+          >
             <Video
-              source={{ uri: video_url }}
+              source={videoSource!}
               style={StyleSheet.absoluteFill}
               useNativeControls={false}
               resizeMode={ResizeMode.CONTAIN}
               isLooping={false}
-              shouldPlay={false}
-              onReadyForDisplay={(videoData) => {
-                if (videoData.naturalSize.width && videoData.naturalSize.height) {
-                  setVideoAspectRatio(videoData.naturalSize.width / videoData.naturalSize.height);
-                }
-              }}
+              shouldPlay={isPlaying}
+              usePoster={!!image_url}
+              posterSource={posterSource}
+              posterStyle={{ resizeMode: 'cover' }}
+              onReadyForDisplay={handleVideoReadyForDisplay}
+              onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
             />
-            <View style={styles.videoOverlay} pointerEvents="none">
-              <BlurView intensity={30} tint="light" style={styles.playButtonBlur}>
-                <View style={styles.playIcon} />
-              </BlurView>
-            </View>
-          </View>
+            {!isPlaying && (
+              <View style={styles.videoOverlay} pointerEvents="none">
+                <BlurView intensity={30} tint="light" style={styles.playButtonBlur}>
+                  <View style={styles.playIcon} />
+                </BlurView>
+              </View>
+            )}
+          </Pressable>
         )}
 
         <FormattedText text={content} style={isAnnouncement ? styles.announcementBody : styles.textContent} />

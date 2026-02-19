@@ -5,9 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { newsService } from '../services/newsService';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabaseClient';
+import { Image as ExpoImage } from 'expo-image';
 
 import { useTheme } from '../context/ThemeContext';
 import { ComposerGalleryIcon, ComposerGifIcon, ComposerVideoIcon, ComposerChartIcon, ComposerMicIcon, SendPlaneIcon } from '../components/Icons';
@@ -41,6 +43,9 @@ export const AdminPostScreen = () => {
 
     // Manual keyboard height tracking
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+    const imageSource = useMemo(() => imageUri ? { uri: imageUri } : undefined, [imageUri]);
+
     React.useEffect(() => {
         const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
         const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -153,6 +158,20 @@ export const AdminPostScreen = () => {
 
         setSending(true);
         try {
+            // Generate thumbnail if video exists and no image selected
+            let finalImageUri = imageUri;
+            if (videoUri && !imageUri) {
+                try {
+                    console.log('Generating thumbnail for video...');
+                    const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
+                        quality: 0.7,
+                    });
+                    finalImageUri = uri;
+                } catch (e) {
+                    console.warn('Failed to generate thumbnail:', e);
+                }
+            }
+
             let pushResult: { ok: boolean; warning: string | null } = { ok: true, warning: null };
             if (isNews) {
                 const created = await newsService.create(
@@ -160,7 +179,7 @@ export const AdminPostScreen = () => {
                     message.trim(),
                     user!.id,
                     user!.display_name,
-                    imageUri || undefined,
+                    finalImageUri || undefined,
                     videoUri || undefined
                 );
                 pushResult = await sendPush({
@@ -176,7 +195,7 @@ export const AdminPostScreen = () => {
                     message.trim(),
                     user!.id,
                     user!.display_name,
-                    imageUri || undefined,
+                    finalImageUri || undefined,
                     videoUri || undefined
                 );
                 pushResult = await sendPush({
@@ -474,11 +493,11 @@ export const AdminPostScreen = () => {
                         {/* Media Preview inside input area */}
                         {(imageUri || videoUri) && (
                             <View style={styles.imagePreviewContainer}>
-                                {imageUri ? (
-                                    <Image
-                                        source={{ uri: imageUri }}
+                                {imageSource ? (
+                                    <ExpoImage
+                                        source={imageSource}
                                         style={styles.imagePreview}
-                                        resizeMode="contain"
+                                        contentFit="contain"
                                     />
                                 ) : (
                                     <Video

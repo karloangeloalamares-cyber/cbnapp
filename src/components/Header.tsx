@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
-import { FilterIcon } from './Icons';
+
 
 interface HeaderProps {
   title?: string;
@@ -78,7 +78,7 @@ export const Header = ({
         <Text style={styles.titleText}>{title}</Text>
       </View>
       <View style={styles.rightSection}>
-        <FilterIcon size={20} color={textColor} />
+
         {avatar && (
           <Pressable onPress={onAvatarPress}>
             <Image source={{ uri: avatar }} style={styles.profileAvatar} />

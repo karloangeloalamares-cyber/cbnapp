@@ -35,6 +35,9 @@ export const NewsDetailScreen = () => {
 
     const [videoAspectRatio, setVideoAspectRatio] = React.useState(1.77);
 
+    // Memoize image source to prevent flickering
+    const imageSource = useMemo(() => article?.image_url ? { uri: article.image_url } : undefined, [article?.image_url]);
+
 
     const openLink = async () => {
         if (!article?.link_url) return;
@@ -57,8 +60,8 @@ export const NewsDetailScreen = () => {
 
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.card}>
-                    {article?.image_url && (
-                        <Image source={{ uri: article.image_url }} style={styles.image} resizeMode="cover" />
+                    {imageSource && (
+                        <Image source={imageSource} style={styles.image} resizeMode="cover" />
                     )}
 
                     {article?.video_url && (
