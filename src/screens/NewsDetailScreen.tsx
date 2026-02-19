@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Image, Pressable, Linking, ScrollView } from 'react-native';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, Linking, ScrollView } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NewsArticle } from '../types';
@@ -34,9 +36,24 @@ export const NewsDetailScreen = () => {
     const createdAtLabel = article?.created_at ? formatDateTime(article.created_at) : '';
 
     const [videoAspectRatio, setVideoAspectRatio] = React.useState(1.77);
+    const [imageAspectRatio, setImageAspectRatio] = useState(1.5);
+    const [videoPlaying, setVideoPlaying] = useState(false);
+    const videoRef = useRef<any>(null);
 
-    // Memoize image source to prevent flickering
-    const imageSource = useMemo(() => article?.image_url ? { uri: article.image_url } : undefined, [article?.image_url]);
+    // Generate thumbnail from video if no image_url exists
+    const [generatedThumbnail, setGeneratedThumbnail] = useState<string | null>(null);
+    useEffect(() => {
+        if (article?.video_url && !article?.image_url) {
+            VideoThumbnails.getThumbnailAsync(article.video_url, { quality: 0.7 })
+                .then(({ uri }) => setGeneratedThumbnail(uri))
+                .catch(() => { });
+        }
+    }, [article?.video_url, article?.image_url]);
+
+    // Poster source: prefer image_url, fallback to generated thumbnail
+    const posterUri = article?.image_url || generatedThumbnail;
+    const posterSource = useMemo(() => posterUri ? { uri: posterUri } : undefined, [posterUri]);
+
 
 
     const openLink = async () => {
@@ -60,17 +77,54 @@ export const NewsDetailScreen = () => {
 
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.card}>
-                    {imageSource && (
-                        <Image source={imageSource} style={styles.image} resizeMode="cover" />
+                    {/* Show image only if there's no video, or as poster before video plays */}
+                    {posterSource && !article?.video_url && (
+                        <ExpoImage
+                            source={posterSource}
+                            style={[styles.image, { aspectRatio: imageAspectRatio }]}
+                            contentFit="cover"
+                            onLoad={(e) => {
+                                if (e.source.width && e.source.height) {
+                                    setImageAspectRatio(e.source.width / e.source.height);
+                                }
+                            }}
+                        />
                     )}
 
-                    {article?.video_url && (
+                    {article?.video_url && !videoPlaying && (
+                        <Pressable
+                            style={[styles.videoContainer, { aspectRatio: imageAspectRatio }]}
+                            onPress={() => setVideoPlaying(true)}
+                        >
+                            {posterSource && (
+                                <ExpoImage
+                                    source={posterSource}
+                                    style={StyleSheet.absoluteFill}
+                                    contentFit="cover"
+                                    onLoad={(e) => {
+                                        if (e.source.width && e.source.height) {
+                                            setImageAspectRatio(e.source.width / e.source.height);
+                                        }
+                                    }}
+                                />
+                            )}
+                            <View style={styles.playOverlay}>
+                                <View style={styles.playButton}>
+                                    <Text style={styles.playIcon}>▶</Text>
+                                </View>
+                            </View>
+                        </Pressable>
+                    )}
+
+                    {article?.video_url && videoPlaying && (
                         <View style={[styles.videoContainer, { aspectRatio: videoAspectRatio }]}>
                             <Video
+                                ref={videoRef}
                                 source={{ uri: article.video_url }}
                                 style={StyleSheet.absoluteFill}
                                 useNativeControls
                                 resizeMode={ResizeMode.CONTAIN}
+                                shouldPlay
                                 isLooping={false}
                                 onReadyForDisplay={(videoData) => {
                                     if (videoData.naturalSize.width && videoData.naturalSize.height) {
@@ -141,7 +195,6 @@ const createStyles = (theme: any) =>
         },
         image: {
             width: '100%',
-            height: 220,
             borderRadius: 12,
             marginBottom: 16,
         },
@@ -151,6 +204,25 @@ const createStyles = (theme: any) =>
             backgroundColor: '#000',
             marginBottom: 16,
             overflow: 'hidden',
+        },
+        playOverlay: {
+            ...StyleSheet.absoluteFillObject,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0,0,0,0.3)',
+        },
+        playButton: {
+            width: 64,
+            height: 64,
+            borderRadius: 32,
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        playIcon: {
+            fontSize: 28,
+            color: '#000',
+            marginLeft: 4,
         },
 
         contentText: {

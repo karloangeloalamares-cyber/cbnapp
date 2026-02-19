@@ -108,56 +108,17 @@ const StatsTab = ({ navigation }: any) => {
     );
 };
 
+import { useNotifications } from '../context/NotificationContext';
+
 export const MainNavigator = () => {
     const insets = useSafeAreaInsets();
     const { theme } = useTheme();
     const { user } = useAuth();
     const isAdmin = authService.isAdmin(user);
-    const canNotify = !!user && !isAdmin;
-    const [unreadCount, setUnreadCount] = useState(0);
+    const { unreadCount } = useNotifications(); // Use global state
+    // const canNotify = !!user && !isAdmin; // Logic moved to context
 
-    const loadUnreadCount = useCallback(async () => {
-        if (!canNotify || !user) {
-            setUnreadCount(0);
-            return;
-        }
-        try {
-            const count = await notificationService.getUnreadCount(user.id);
-            setUnreadCount(count);
-        } catch (error) {
-            console.warn('Failed to load unread count', error);
-        }
-    }, [canNotify, user]);
-
-    useEffect(() => {
-        loadUnreadCount();
-    }, [loadUnreadCount]);
-
-    useEffect(() => {
-        if (!canNotify || !user) return;
-
-        const channel = supabase
-            .channel(`cbn-app-notification-badge-main-${user.id}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'cbn_app_notifications',
-                    filter: `recipient_id=eq.${user.id}`,
-                },
-                (payload) => {
-                    if (!payload.new.read_at) {
-                        setUnreadCount((prev) => prev + 1);
-                    }
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [canNotify, user]);
+    // Removed local loadUnreadCount and subscription effects as they handled in context
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>

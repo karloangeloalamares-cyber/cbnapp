@@ -11,6 +11,7 @@ interface SelectionHeaderProps {
     onShare?: () => void;
     onCopy?: () => void;
     onStar?: () => void;
+    isAdmin?: boolean;
 }
 
 export const SelectionHeader = ({
@@ -21,6 +22,7 @@ export const SelectionHeader = ({
     onShare,
     onCopy,
     onStar,
+    isAdmin = false,
 }: SelectionHeaderProps) => {
     const insets = useSafeAreaInsets();
     const { theme } = useTheme();
@@ -51,9 +53,11 @@ export const SelectionHeader = ({
                     <Pressable onPress={() => handleAction('Star', onStar)} style={styles.iconButton}>
                         <Text style={styles.icon}>⭐</Text>
                     </Pressable>
-                    <Pressable onPress={() => handleAction('Delete', onDelete)} style={styles.iconButton}>
-                        <Text style={styles.icon}>🗑️</Text>
-                    </Pressable>
+                    {isAdmin && (
+                        <Pressable onPress={() => handleAction('Delete', onDelete)} style={styles.iconButton}>
+                            <Text style={styles.icon}>🗑️</Text>
+                        </Pressable>
+                    )}
                 </View>
             </View>
         </View>

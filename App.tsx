@@ -10,6 +10,7 @@ import * as Notifications from 'expo-notifications';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { NotificationProvider } from './src/context/NotificationContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'; // Ensure this is imported
 import { LoginScreen } from './src/screens/LoginScreen';
 import { SignUpScreen } from './src/screens/SignUpScreen';
@@ -179,7 +180,9 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <ThemeProvider>
-          <AppContent />
+          <NotificationProvider>
+            <AppContent />
+          </NotificationProvider>
         </ThemeProvider>
       </AuthProvider>
     </SafeAreaProvider>

@@ -74,7 +74,7 @@ export const PostOptionsModal = ({
                                 </>
                             )}
 
-                            {onDelete && (
+                            {onDelete && isAdmin && (
                                 <>
                                     <View style={styles.divider} />
                                     <TouchableOpacity style={styles.menuItem} onPress={onDelete}>

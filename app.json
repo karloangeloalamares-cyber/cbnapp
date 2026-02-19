@@ -38,7 +38,9 @@
     },
     "owner": "kalamares",
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-video",
+      "expo-audio"
     ]
   }
 }

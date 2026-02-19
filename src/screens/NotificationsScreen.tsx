@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 import { AppNotification } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { useNotifications } from '../context/NotificationContext'; // Import context
 import { AnnouncementIcon, NewsIcon } from '../components/Icons';
 
 
@@ -47,96 +48,40 @@ export const NotificationsScreen = () => {
     const styles = useMemo(() => createStyles(theme), [theme]);
     const isAdmin = authService.isAdmin(user);
     const canTrackView = !!user && !isAdmin;
-    const [notifications, setNotifications] = useState<AppNotification[]>([]);
+    const { notifications, loading, refreshNotifications, markRead } = useNotifications(); // Use context
+    // Local refreshing state for UI feedback
     const [refreshing, setRefreshing] = useState(false);
-
-    const loadNotifications = useCallback(async () => {
-        if (!user || isAdmin) {
-            setNotifications([]);
-            return;
-        }
-        const data = await notificationService.getAll(user.id);
-        setNotifications(data);
-    }, [user, isAdmin]);
-
-    useEffect(() => {
-        loadNotifications();
-    }, [loadNotifications]);
-
-    useEffect(() => {
-        if (!user || isAdmin) return;
-
-        const channel = supabase
-            .channel(`cbn-app-notifications-${user.id}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'cbn_app_notifications',
-                    filter: `recipient_id=eq.${user.id}`,
-                },
-                (payload) => {
-                    const newItem = mapNotification(payload.new);
-                    setNotifications((prev) => [newItem, ...prev]);
-                }
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'cbn_app_notifications',
-                    filter: `recipient_id=eq.${user.id}`,
-                },
-                (payload) => {
-                    const updated = mapNotification(payload.new);
-                    setNotifications((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [user, isAdmin]);
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await loadNotifications();
+        await refreshNotifications();
         setRefreshing(false);
     };
 
-    const markReadLocal = (id: string) => {
-        setNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, read_at: new Date().toISOString() } : item)));
-    };
+
 
     const handleOpenNotification = async (notification: AppNotification) => {
         if (!user) return;
 
-        try {
-            if (!notification.read_at) {
-                await notificationService.markRead(notification.id);
-                markReadLocal(notification.id);
-            }
+        // 1. Mark read optimistically (instant UI update, DB in background)
+        if (!notification.read_at) {
+            markRead(notification.id);
+            notificationService.markRead(notification.id).catch(() => { });
+        }
 
+        try {
             if (notification.target_type === 'news') {
                 const article = await newsService.getById(notification.target_id);
                 if (!article) {
                     Alert.alert('Not found', 'This news post is no longer available.');
                     return;
                 }
+                // Navigate immediately — don't wait for view tracking
+                navigation.navigate('NewsDetail', { article, viewCount: 0 });
+                // Fire view tracking in background
                 if (canTrackView) {
-                    try {
-                        await postViewsService.add('news', article.id, user.id);
-                    } catch (error: any) {
-                        if (error?.code !== '23505') {
-                            console.warn('Failed to add view', error);
-                        }
-                    }
+                    postViewsService.add('news', article.id, user.id).catch(() => { });
                 }
-                const views = await postViewsService.getForTargets('news', [article.id]);
-                navigation.navigate('NewsDetail', { article, viewCount: views.length });
                 return;
             }
 
@@ -146,17 +91,10 @@ export const NotificationsScreen = () => {
                     Alert.alert('Not found', 'This announcement is no longer available.');
                     return;
                 }
+                navigation.navigate('AnnouncementDetail', { announcement, viewCount: 0 });
                 if (canTrackView) {
-                    try {
-                        await postViewsService.add('announcement', announcement.id, user.id);
-                    } catch (error: any) {
-                        if (error?.code !== '23505') {
-                            console.warn('Failed to add view', error);
-                        }
-                    }
+                    postViewsService.add('announcement', announcement.id, user.id).catch(() => { });
                 }
-                const views = await postViewsService.getForTargets('announcement', [announcement.id]);
-                navigation.navigate('AnnouncementDetail', { announcement, viewCount: views.length });
             }
         } catch (error) {
             Alert.alert('Error', 'Failed to open notification.');
@@ -169,7 +107,7 @@ export const NotificationsScreen = () => {
         const badgeLabel = isNews ? 'News' : 'Announcement';
         const iconColor = isUnread ? theme.colors.primary : theme.colors.textSecondary;
         return (
-            <Pressable style={[styles.card, isUnread && styles.cardUnread]} onPress={() => handleOpenNotification(item)}>
+            <Pressable style={styles.card} onPress={() => handleOpenNotification(item)}>
                 <View style={styles.cardTopRow}>
                     <View style={styles.iconWrap}>
                         {isNews ? (
@@ -215,8 +153,7 @@ export const NotificationsScreen = () => {
 };
 
 const createStyles = (theme: any) => {
-    const unreadBg = withAlpha(theme.colors.primary, theme.dark ? '1F' : '12');
-    const unreadBorder = withAlpha(theme.colors.primary, '66');
+    // Removed unreadAlpha/Border as they are no longer used for card bg
     const badgeBg = withAlpha(theme.colors.primary, theme.dark ? '33' : '1A');
 
     return StyleSheet.create({
@@ -234,13 +171,15 @@ const createStyles = (theme: any) => {
             borderRadius: 12,
             padding: 14,
             marginBottom: 12,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
+            // Removed border if not needed, or keep subtle
+            borderWidth: 0,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 2,
         },
-        cardUnread: {
-            borderColor: unreadBorder,
-            backgroundColor: unreadBg,
-        },
+        // cardUnread removed
         cardTopRow: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -248,14 +187,12 @@ const createStyles = (theme: any) => {
             marginBottom: 8,
         },
         iconWrap: {
-            width: 28,
-            height: 28,
-            borderRadius: 14,
+            width: 32,
+            height: 32,
+            borderRadius: 16,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: theme.colors.cardBackground || theme.colors.surface,
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: theme.colors.border,
+            backgroundColor: theme.dark ? '#2C2C2E' : '#F2F2F7', // Neutral background
         },
         badgeWrap: {
             borderRadius: 999,
@@ -272,12 +209,13 @@ const createStyles = (theme: any) => {
         title: {
             fontSize: 16,
             color: theme.colors.text,
-            fontWeight: '600',
+            fontWeight: '500',
             fontFamily: 'Inter',
             lineHeight: 21,
         },
         titleUnread: {
-            color: theme.colors.primary,
+            fontWeight: '700',
+            color: theme.colors.text, // Keep text color standard
         },
         body: {
             marginTop: 6,
