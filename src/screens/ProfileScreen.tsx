@@ -96,19 +96,18 @@ export const ProfileScreen = () => {
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
-                <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-                    {/* Using a text arrow for now, but could be an icon */}
+                <Pressable onPress={() => navigation.goBack()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
                     <Text style={styles.backText}>←</Text>
                 </Pressable>
                 <Text style={styles.headerTitle}>Edit Profile</Text>
-                <Pressable onPress={() => navigation.navigate('Main', { screen: 'Settings' })} style={styles.settingsButton}>
+                <Pressable onPress={() => navigation.navigate('Main', { screen: 'Settings' })} style={styles.settingsButton} accessibilityRole="button" accessibilityLabel="Settings">
                     <SettingsIcon size={20} color={theme.colors.text} strokeWidth={1.8} />
                 </Pressable>
             </View>
 
             <View style={styles.content}>
                 <View style={styles.avatarContainer}>
-                    <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
+                    <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper} accessibilityRole="button" accessibilityLabel="Change profile photo">
                         <Image
                             source={{ uri: avatarUrl || fallbackAvatar }}
                             style={styles.avatar}
@@ -138,6 +137,10 @@ export const ProfileScreen = () => {
                         onChangeText={setDisplayName}
                         placeholder="Enter display name"
                         placeholderTextColor={theme.colors.textSecondary}
+                        textContentType="name"
+                        returnKeyType="done"
+                        onSubmitEditing={handleUpdate}
+                        accessibilityLabel="Display name"
                     />
                 </View>
 
@@ -145,6 +148,9 @@ export const ProfileScreen = () => {
                     style={[styles.button, loading && styles.buttonDisabled]}
                     onPress={handleUpdate}
                     disabled={loading}
+                    accessibilityRole="button"
+                    accessibilityLabel={loading ? 'Saving changes' : 'Save changes'}
+                    accessibilityState={{ disabled: loading, busy: loading }}
                 >
                     <Text style={styles.buttonText}>{loading ? 'SAVING...' : 'SAVE CHANGES'}</Text>
                 </TouchableOpacity>
@@ -168,10 +174,17 @@ const createStyles = (theme: any) =>
             paddingTop: 10,
         },
         backButton: {
-            padding: 8,
+            padding: 12,
+            minWidth: 44,
+            minHeight: 44,
+            justifyContent: 'center',
         },
         settingsButton: {
-            padding: 8,
+            padding: 12,
+            minWidth: 44,
+            minHeight: 44,
+            justifyContent: 'center',
+            alignItems: 'center',
         },
         backText: {
             fontSize: 24,

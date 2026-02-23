@@ -150,7 +150,10 @@ export const AdminPostScreen = () => {
             paddingBottom: 12,
         },
         backButton: {
-            padding: 4,
+            padding: 12,
+            minWidth: 44,
+            minHeight: 44,
+            justifyContent: 'center',
         },
         backArrow: {
             fontSize: 24,
@@ -285,7 +288,7 @@ export const AdminPostScreen = () => {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <Pressable onPress={() => navigation.goBack()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
                         <Text style={styles.backArrow}>←</Text>
                     </Pressable>
 
@@ -293,12 +296,18 @@ export const AdminPostScreen = () => {
                         <Pressable
                             style={[styles.segmentButton, isNews && styles.segmentButtonActive]}
                             onPress={() => setPostType('news')}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected: isNews }}
+                            accessibilityLabel="Post"
                         >
                             <Text style={styles.segmentText}>Post</Text>
                         </Pressable>
                         <Pressable
                             style={[styles.segmentButton, !isNews && styles.segmentButtonActive]}
                             onPress={() => setPostType('announcement')}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected: !isNews }}
+                            accessibilityLabel="Announcement"
                         >
                             <Text style={styles.segmentText}>Announcement</Text>
                         </Pressable>
@@ -328,6 +337,8 @@ export const AdminPostScreen = () => {
                                     onChangeText={setTitle}
                                     placeholder="Announcement Title"
                                     placeholderTextColor="#666"
+                                    accessibilityLabel="Announcement title"
+                                    returnKeyType="next"
                                 />
                             )}
                             <TextInput
@@ -343,7 +354,7 @@ export const AdminPostScreen = () => {
 
                             {(imageUri || videoUri) && (
                                 <View style={styles.mediaPreview}>
-                                    <Pressable style={styles.removeBtn} onPress={removeMedia}>
+                                    <Pressable style={styles.removeBtn} onPress={removeMedia} accessibilityRole="button" accessibilityLabel="Remove media">
                                         <Text style={{ color: '#fff', fontSize: 12 }}>✕</Text>
                                     </Pressable>
                                     {imageUri ? (
@@ -392,12 +403,12 @@ export const AdminPostScreen = () => {
                     {/* Toolbar */}
                     <View style={styles.toolbar}>
                         <View style={styles.toolbarIcons}>
-                            <Pressable onPress={pickImage}><ComposerGalleryIcon size={24} color="#FFFFFF" /></Pressable>
-                            <Pressable><ComposerGifIcon size={24} color="#FFFFFF" /></Pressable>
-                            <Pressable onPress={pickVideo}><ComposerVideoIcon size={24} color="#FFFFFF" /></Pressable>
-                            <Pressable><ComposerChartIcon size={24} color="#FFFFFF" /></Pressable>
+                            <Pressable onPress={pickImage} accessibilityRole="button" accessibilityLabel="Add image" hitSlop={8}><ComposerGalleryIcon size={24} color="#FFFFFF" /></Pressable>
+                            <Pressable accessibilityRole="button" accessibilityLabel="Add GIF" hitSlop={8}><ComposerGifIcon size={24} color="#FFFFFF" /></Pressable>
+                            <Pressable onPress={pickVideo} accessibilityRole="button" accessibilityLabel="Add video" hitSlop={8}><ComposerVideoIcon size={24} color="#FFFFFF" /></Pressable>
+                            <Pressable accessibilityRole="button" accessibilityLabel="Add chart" hitSlop={8}><ComposerChartIcon size={24} color="#FFFFFF" /></Pressable>
                         </View>
-                        <Pressable><ComposerMicIcon size={24} color="#FFFFFF" /></Pressable>
+                        <Pressable accessibilityRole="button" accessibilityLabel="Record audio" hitSlop={8}><ComposerMicIcon size={24} color="#FFFFFF" /></Pressable>
                     </View>
                     {Platform.OS === 'ios' && !isKeyboardVisible && <View style={{ height: insets.bottom }} />}
                 </View>

@@ -69,7 +69,7 @@ export const NewsDetailScreen = () => {
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
-                <Pressable onPress={() => navigation.goBack()}>
+                <Pressable onPress={() => navigation.goBack()} style={{ padding: 8, minHeight: 44, justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel="Go back">
                     <Text style={styles.backText}>&lt; Back</Text>
                 </Pressable>
                 <Text style={styles.headerTitle}>News</Text>
@@ -96,6 +96,8 @@ export const NewsDetailScreen = () => {
                         <Pressable
                             style={[styles.videoContainer, { aspectRatio: imageAspectRatio }]}
                             onPress={() => setVideoPlaying(true)}
+                            accessibilityRole="button"
+                            accessibilityLabel="Play video"
                         >
                             {posterSource && (
                                 <ExpoImage

@@ -45,6 +45,8 @@ export const LoginScreen = () => {
                         }
                     }}
                     style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Go back"
                 >
                     <Text style={styles.backArrow}>←</Text>
                 </TouchableOpacity>
@@ -68,6 +70,10 @@ export const LoginScreen = () => {
                             placeholderTextColor={theme.colors.textSecondary}
                             keyboardType="email-address"
                             autoCapitalize="none"
+                            textContentType="emailAddress"
+                            autoComplete="email"
+                            returnKeyType="next"
+                            accessibilityLabel="Email address"
                         />
                     </View>
 
@@ -82,13 +88,24 @@ export const LoginScreen = () => {
                             placeholder="Password"
                             placeholderTextColor={theme.colors.textSecondary}
                             secureTextEntry={!showPassword}
+                            textContentType="password"
+                            autoComplete="password"
+                            returnKeyType="done"
+                            onSubmitEditing={handleLogin}
+                            accessibilityLabel="Password"
                         />
-                        <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.passwordToggle}>
+                        <Pressable
+                            onPress={() => setShowPassword(!showPassword)}
+                            style={styles.passwordToggle}
+                            accessibilityRole="button"
+                            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                            hitSlop={8}
+                        >
                             <Text style={styles.passwordToggleText}>{showPassword ? 'HIDE' : 'SHOW'}</Text>
                         </Pressable>
                     </View>
 
-                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                    {error ? <Text style={styles.errorText} accessibilityRole="alert" accessibilityLiveRegion="assertive">{error}</Text> : null}
 
                     <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
                         <Text style={styles.forgotPassword}>Forgot password?</Text>
@@ -98,6 +115,9 @@ export const LoginScreen = () => {
                         style={[styles.loginButton, loading && { opacity: 0.7 }]}
                         onPress={handleLogin}
                         disabled={loading}
+                        accessibilityRole="button"
+                        accessibilityLabel={loading ? 'Logging in' : 'Log in'}
+                        accessibilityState={{ disabled: loading, busy: loading }}
                     >
                         <Text style={styles.loginButtonText}>{loading ? 'LOGGING IN...' : 'LOG IN'}</Text>
                     </TouchableOpacity>
@@ -117,6 +137,8 @@ export const LoginScreen = () => {
                                 setError(result.error);
                             }
                         }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Sign in with Google"
                     >
                         <GoogleIcon size={20} />
                         <Text style={styles.googleButtonText}>Sign in with Google</Text>
@@ -141,7 +163,10 @@ const createStyles = (theme: any) =>
             paddingBottom: 20,
         },
         backButton: {
-            padding: 8,
+            padding: 12,
+            minWidth: 44,
+            minHeight: 44,
+            justifyContent: 'center',
         },
         backArrow: {
             color: theme.colors.text,

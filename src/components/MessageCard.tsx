@@ -401,6 +401,8 @@ export const MessageCard = ({
               <Pressable
                 style={styles.videoOverlay}
                 onPress={() => setIsPlaying(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Play video"
               >
                 <BlurView intensity={30} tint="light" style={styles.playButtonBlur}>
                   <View style={styles.playIcon} />
@@ -412,6 +414,8 @@ export const MessageCard = ({
               style={styles.fullscreenButton}
               onPress={handleFullscreen}
               hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Fullscreen video"
             >
               <Text style={styles.fullscreenIcon}>⛶</Text>
             </Pressable>

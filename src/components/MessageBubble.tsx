@@ -101,7 +101,7 @@ export const MessageBubble = ({
 
                     {/* Link Preview (Simple) */}
                     {link_url && (
-                        <Pressable onPress={handleLinkPress} style={styles.linkContainer}>
+                        <Pressable onPress={handleLinkPress} style={styles.linkContainer} accessibilityRole="link" accessibilityLabel="Open link">
                             <Text style={styles.linkLabel}>Link to CBN FILTERED</Text>
                             <Text style={[styles.linkText, { color: theme.colors.primary }]} numberOfLines={1}>{link_url}</Text>
                         </Pressable>

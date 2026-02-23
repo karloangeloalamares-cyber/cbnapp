@@ -41,6 +41,7 @@ export const SettingsScreen = () => {
                             <Switch
                                 value={isDarkMode}
                                 onValueChange={toggleTheme}
+                                accessibilityLabel="Dark mode"
                                 trackColor={{
                                     false: theme.dark ? '#4B5563' : '#D1D5DB',
                                     true: `${theme.colors.primary}88`,
@@ -52,7 +53,7 @@ export const SettingsScreen = () => {
 
                     <Text style={styles.sectionTitle}>Account</Text>
                     <View style={styles.section}>
-                        <Pressable style={styles.row} onPress={logout}>
+                        <Pressable style={styles.row} onPress={logout} accessibilityRole="button" accessibilityLabel="Log out">
                             <View style={styles.rowContent}>
                                 <View style={styles.iconWrap}>
                                     <LogoutIcon size={18} color={theme.colors.danger || '#DC2626'} strokeWidth={1.8} />

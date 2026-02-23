@@ -40,6 +40,8 @@ export const WelcomeScreen = () => {
                     <TouchableOpacity
                         style={styles.signUpButton}
                         onPress={() => navigation.navigate('SignUp')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Sign up for free"
                     >
                         <Text style={styles.signUpButtonText}>SIGN UP FOR FREE</Text>
                     </TouchableOpacity>
@@ -47,6 +49,8 @@ export const WelcomeScreen = () => {
                     <TouchableOpacity
                         style={styles.loginButton}
                         onPress={() => navigation.navigate('Login')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Log in"
                     >
                         <Text style={styles.loginButtonText}>LOG IN</Text>
                     </TouchableOpacity>
@@ -60,6 +64,8 @@ export const WelcomeScreen = () => {
                     <TouchableOpacity
                         style={styles.googleButton}
                         onPress={googleLogin}
+                        accessibilityRole="button"
+                        accessibilityLabel="Sign in with Google"
                     >
                         <GoogleIcon size={20} />
                         <Text style={styles.googleButtonText}>Sign in with Google</Text>

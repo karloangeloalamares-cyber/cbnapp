@@ -675,6 +675,14 @@ export const NewsScreen = () => {
                             tintColor={theme.colors.primary}
                         />
                     }
+                    ListEmptyComponent={
+                        !refreshing ? (
+                            <View style={{ alignItems: 'center', paddingTop: 60 }}>
+                                <Text style={{ fontSize: 16, color: theme.colors.textSecondary, fontFamily: 'Inter' }}>No news yet</Text>
+                                <Text style={{ fontSize: 14, color: theme.colors.textSecondary, fontFamily: 'Inter', marginTop: 4 }}>Pull down to refresh</Text>
+                            </View>
+                        ) : null
+                    }
                 />
 
                 {/* Admin Composer Removed - Now using FAB */}

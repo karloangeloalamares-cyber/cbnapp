@@ -80,7 +80,7 @@ export const Header = ({
       <View style={styles.rightSection}>
 
         {avatar && (
-          <Pressable onPress={onAvatarPress}>
+          <Pressable onPress={onAvatarPress} accessibilityRole="button" accessibilityLabel="Open profile">
             <Image source={{ uri: avatar }} style={styles.profileAvatar} />
           </Pressable>
         )}

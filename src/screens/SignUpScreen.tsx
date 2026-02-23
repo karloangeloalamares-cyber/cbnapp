@@ -56,6 +56,8 @@ export const SignUpScreen = () => {
                         }
                     }}
                     style={styles.backButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Go back"
                 >
                     <Text style={styles.backArrow}>←</Text>
                 </TouchableOpacity>
@@ -78,6 +80,10 @@ export const SignUpScreen = () => {
                             placeholder="Full Name"
                             placeholderTextColor={theme.colors.textSecondary}
                             autoCapitalize="words"
+                            textContentType="name"
+                            autoComplete="name"
+                            returnKeyType="next"
+                            accessibilityLabel="Full name"
                         />
                     </View>
 
@@ -93,6 +99,10 @@ export const SignUpScreen = () => {
                             placeholderTextColor={theme.colors.textSecondary}
                             keyboardType="email-address"
                             autoCapitalize="none"
+                            textContentType="emailAddress"
+                            autoComplete="email"
+                            returnKeyType="next"
+                            accessibilityLabel="Email address"
                         />
                     </View>
 
@@ -107,8 +117,18 @@ export const SignUpScreen = () => {
                             placeholder="Password"
                             placeholderTextColor={theme.colors.textSecondary}
                             secureTextEntry={!showPassword}
+                            textContentType="newPassword"
+                            autoComplete="new-password"
+                            returnKeyType="next"
+                            accessibilityLabel="Password"
                         />
-                        <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.passwordToggle}>
+                        <Pressable
+                            onPress={() => setShowPassword(!showPassword)}
+                            style={styles.passwordToggle}
+                            accessibilityRole="button"
+                            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                            hitSlop={8}
+                        >
                             <Text style={styles.passwordToggleText}>{showPassword ? 'HIDE' : 'SHOW'}</Text>
                         </Pressable>
                     </View>
@@ -124,15 +144,22 @@ export const SignUpScreen = () => {
                             placeholder="Confirm Password"
                             placeholderTextColor={theme.colors.textSecondary}
                             secureTextEntry
+                            textContentType="newPassword"
+                            returnKeyType="done"
+                            onSubmitEditing={handleSignUp}
+                            accessibilityLabel="Confirm password"
                         />
                     </View>
 
-                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                    {error ? <Text style={styles.errorText} accessibilityRole="alert" accessibilityLiveRegion="assertive">{error}</Text> : null}
 
                     <TouchableOpacity
                         style={[styles.createButton, loading && { opacity: 0.7 }]}
                         onPress={handleSignUp}
                         disabled={loading}
+                        accessibilityRole="button"
+                        accessibilityLabel={loading ? 'Creating account' : 'Create account'}
+                        accessibilityState={{ disabled: loading, busy: loading }}
                     >
                         <Text style={styles.createButtonText}>{loading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}</Text>
                     </TouchableOpacity>
@@ -152,6 +179,8 @@ export const SignUpScreen = () => {
                                 setError(result.error);
                             }
                         }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Sign up with Google"
                     >
                         <GoogleIcon size={20} />
                         <Text style={styles.googleButtonText}>Sign up with Google</Text>
@@ -176,7 +205,10 @@ const createStyles = (theme: any) =>
             paddingBottom: 20,
         },
         backButton: {
-            padding: 8,
+            padding: 12,
+            minWidth: 44,
+            minHeight: 44,
+            justifyContent: 'center',
         },
         backArrow: {
             color: theme.colors.text,

@@ -60,6 +60,8 @@ export const ForgotPasswordScreen = () => {
             <Pressable
                 style={[styles.backButton, { top: insets.top + 8 }]}
                 onPress={() => navigation.goBack()}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
             >
                 <Text style={styles.backText}>&lt; Back</Text>
             </Pressable>
@@ -84,12 +86,20 @@ export const ForgotPasswordScreen = () => {
                     placeholderTextColor={theme.colors.textSecondary}
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    textContentType="emailAddress"
+                    autoComplete="email"
+                    returnKeyType="done"
+                    onSubmitEditing={handleReset}
+                    accessibilityLabel="Email address"
                 />
 
                 <TouchableOpacity
                     style={[styles.button, loading && styles.buttonDisabled]}
                     onPress={handleReset}
                     disabled={loading}
+                    accessibilityRole="button"
+                    accessibilityLabel={loading ? 'Sending reset link' : 'Send reset link'}
+                    accessibilityState={{ disabled: loading, busy: loading }}
                 >
                     <Text style={styles.buttonText}>
                         {loading ? 'Sending...' : 'Send Reset Link'}
@@ -111,8 +121,11 @@ const createStyles = (theme: any) =>
             position: 'absolute',
             left: 16,
             zIndex: 1,
-            paddingVertical: 6,
-            paddingHorizontal: 8,
+            paddingVertical: 10,
+            paddingHorizontal: 12,
+            minWidth: 44,
+            minHeight: 44,
+            justifyContent: 'center',
         },
         backText: {
             fontSize: 14,
