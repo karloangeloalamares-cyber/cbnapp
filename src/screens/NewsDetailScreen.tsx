@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Linking, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { safeOpenURL } from '../utils/safeOpenURL';
 import { Image as ExpoImage } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -59,7 +60,7 @@ export const NewsDetailScreen = () => {
     const openLink = async () => {
         if (!article?.link_url) return;
         try {
-            await Linking.openURL(article.link_url);
+            await safeOpenURL(article.link_url);
         } catch (error) {
             console.warn('Failed to open article link', error);
         }

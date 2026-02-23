@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, StyleSheet, Platform, TextStyle, StyleProp, View, Linking } from 'react-native';
+import { Text, StyleSheet, Platform, TextStyle, StyleProp, View } from 'react-native';
+import { safeOpenURL } from '../utils/safeOpenURL';
 
 type SegmentStyle = 'bold' | 'italic' | 'strike' | 'underline' | 'mono';
 
@@ -123,7 +124,7 @@ export const FormattedText = ({ text, style }: { text: string; style?: StyleProp
                         <Text
                             key={idx}
                             style={[...textStyles, { color: '#20B65E', textDecorationLine: 'underline' }]}
-                            onPress={() => Linking.openURL(segment.text)}
+                            onPress={() => safeOpenURL(segment.text)}
                         >
                             {segment.text}
                         </Text>

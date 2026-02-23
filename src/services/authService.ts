@@ -10,7 +10,13 @@ export const authService = {
                 password: password || '', // Password is now required for real auth
             });
 
-            if (authError) return { user: null, error: authError.message };
+            if (authError) {
+                let errorMessage = authError.message;
+                if (errorMessage.includes('Invalid login credentials')) {
+                    errorMessage = 'Invalid email or password.';
+                }
+                return { user: null, error: errorMessage };
+            }
             if (!authData.user) return { user: null, error: 'No user returned from auth' };
 
             // 2. Fetch Profile Details (Role, Display Name)
@@ -53,7 +59,13 @@ export const authService = {
                 },
             });
 
-            if (error) return { user: null, error: error.message };
+            if (error) {
+                let errorMessage = error.message;
+                if (errorMessage.includes('User already registered')) {
+                    errorMessage = 'An account with this email already exists.';
+                }
+                return { user: null, error: errorMessage };
+            }
             if (!data.user || !data.session) return { user: null, error: 'Sign up failed. Please try again.' };
 
             const { data: profile, error: profileError } = await supabase

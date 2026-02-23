@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, Linking, Pressable } from 'react-native';
+import { Text, Pressable } from 'react-native';
+import { safeOpenURL } from '../utils/safeOpenURL';
 import { useTheme } from '../context/ThemeContext';
 
 interface LinkPreviewProps {
@@ -11,7 +12,7 @@ export const LinkPreview = ({ url }: LinkPreviewProps) => {
 
     const handlePress = async () => {
         try {
-            await Linking.openURL(url);
+            await safeOpenURL(url);
         } catch (error) {
             console.warn('Unable to open URL', error);
         }

@@ -42,25 +42,15 @@ export const signInWithGoogle = async (): Promise<{ user: User | null; error: st
 
         console.log('[GoogleAuth] Browser result type:', result.type);
 
-        // 4. Handle the result
+        // 4. Handle the result — PKCE flow returns a code, not tokens
         if (result.type === 'success' && result.url) {
-            // Extract tokens from the URL fragment (#access_token=...&refresh_token=...)
-            const fragment = result.url.split('#')[1];
-            if (!fragment) throw new Error('No auth tokens in callback URL');
+            const url = new URL(result.url);
+            const code = url.searchParams.get('code');
 
-            const params = new URLSearchParams(fragment);
-            const accessToken = params.get('access_token');
-            const refreshToken = params.get('refresh_token');
+            if (!code) throw new Error('No authorization code in callback URL');
 
-            if (!accessToken || !refreshToken) {
-                throw new Error('Missing access_token or refresh_token in callback');
-            }
-
-            // 5. Set the Supabase session
-            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-            });
+            // 5. Exchange code for session — Supabase verifies PKCE challenge
+            const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
 
             if (sessionError) throw sessionError;
             if (!sessionData.user) throw new Error('No user returned after setting session');

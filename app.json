@@ -15,7 +15,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kalamares.cbnapp"
+      "bundleIdentifier": "com.kalamares.cbnapp",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +31,8 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.kalamares.cbnapp",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -40,7 +46,20 @@
     "plugins": [
       "expo-web-browser",
       "expo-video",
-      "expo-audio"
+      "expo-audio",
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "networkInspector": false
+          },
+          "android": {
+            "enableProguardInReleaseBuilds": true
+          }
+        }
+      ],
+      "expo-asset"
     ]
   }
 }

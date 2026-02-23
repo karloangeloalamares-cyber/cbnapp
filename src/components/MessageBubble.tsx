@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable, Platform, Linking, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable, Platform, useWindowDimensions } from 'react-native';
+import { safeOpenURL } from '../utils/safeOpenURL';
 import { useTheme } from '../context/ThemeContext';
 import { FormattedText } from './FormattedText';
 
@@ -45,7 +46,7 @@ export const MessageBubble = ({
 
     const handleLinkPress = () => {
         if (link_url) {
-            Linking.openURL(link_url);
+            safeOpenURL(link_url);
         }
     };
 

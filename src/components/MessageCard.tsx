@@ -4,15 +4,16 @@ import {
   StyleSheet,
   Pressable,
   Dimensions,
-  Linking,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { FormattedText } from './FormattedText';
+import { safeOpenURL } from '../utils/safeOpenURL';
 import { FilterIcon } from './Icons';
 import { LinkPreview } from './LinkPreview';
 import { Video, ResizeMode, AVPlaybackStatus, VideoFullscreenUpdate, VideoFullscreenUpdateEvent } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
 interface MessageCardProps {
@@ -77,9 +78,21 @@ export const MessageCard = ({
     () => (video_url ? { uri: video_url } : undefined),
     [video_url]
   );
+  // Generate thumbnail from video if no image_url exists
+  const [generatedThumbnail, setGeneratedThumbnail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (video_url && !image_url) {
+      VideoThumbnails.getThumbnailAsync(video_url, { quality: 0.7 })
+        .then(({ uri }) => setGeneratedThumbnail(uri))
+        .catch((e) => console.warn('Thumbnail generation failed', e));
+    }
+  }, [video_url, image_url]);
+
+  const posterUri = image_url || generatedThumbnail;
   const posterSource = useMemo(
-    () => (image_url ? { uri: image_url } : undefined),
-    [image_url]
+    () => (posterUri ? { uri: posterUri } : undefined),
+    [posterUri]
   );
 
   // Reset the aspect-ratio guard when the image URL changes
@@ -273,7 +286,7 @@ export const MessageCard = ({
   const handleLinkPress = useCallback(async () => {
     if (link_url) {
       try {
-        await Linking.openURL(link_url);
+        await safeOpenURL(link_url);
       } catch (error) {
         console.warn('Unable to open URL', error);
       }
@@ -377,7 +390,7 @@ export const MessageCard = ({
               resizeMode={ResizeMode.CONTAIN}
               isLooping={false}
               shouldPlay={isPlaying}
-              usePoster={!!image_url}
+              usePoster={!!posterSource}
               posterSource={posterSource}
               posterStyle={{ resizeMode: 'cover' }}
               onReadyForDisplay={handleVideoReadyForDisplay}
