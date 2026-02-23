@@ -31,8 +31,7 @@ export const Avatar = ({ url, name, size = 40 }: AvatarProps) => {
             hash = name.charCodeAt(i) + ((hash << 5) - hash);
         }
         const colors = [
-            '#FF6060', '#50D0C0', '#40B0E0', '#90D0B0',
-            '#FFD070', '#E0A0A0', '#A060C0', '#40A0E0'
+            '#E50914', '#262626', '#334155'
         ];
         return colors[Math.abs(hash) % colors.length];
     };
@@ -88,5 +87,6 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontWeight: 'bold',
         fontFamily: 'Inter',
+        letterSpacing: 2, // Typographic rule for ALL CAPS
     },
 });

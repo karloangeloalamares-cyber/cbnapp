@@ -1,8 +1,8 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { safeOpenURL } from '../utils/safeOpenURL';
 import { Image as ExpoImage } from 'expo-image';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode, VideoFullscreenUpdate, VideoFullscreenUpdateEvent } from 'expo-av';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -55,7 +55,23 @@ export const NewsDetailScreen = () => {
     const posterUri = article?.image_url || generatedThumbnail;
     const posterSource = useMemo(() => posterUri ? { uri: posterUri } : undefined, [posterUri]);
 
+    const handleFullscreen = useCallback(async () => {
+        if (videoRef.current) {
+            try {
+                await videoRef.current.playAsync();
+                setVideoPlaying(true);
+                await videoRef.current.presentFullscreenPlayer();
+            } catch (e) {
+                console.warn('Fullscreen failed:', e);
+            }
+        }
+    }, []);
 
+    const handleFullscreenUpdate = useCallback((event: VideoFullscreenUpdateEvent) => {
+        if (event.fullscreenUpdate === VideoFullscreenUpdate.PLAYER_DID_DISMISS) {
+            setVideoPlaying(false);
+        }
+    }, []);
 
     const openLink = async () => {
         if (!article?.link_url) return;
@@ -134,7 +150,18 @@ export const NewsDetailScreen = () => {
                                         setVideoAspectRatio(videoData.naturalSize.width / videoData.naturalSize.height);
                                     }
                                 }}
+                                onFullscreenUpdate={handleFullscreenUpdate}
                             />
+                            {/* Fullscreen expand button — top-right corner */}
+                            <Pressable
+                                style={styles.fullscreenButton}
+                                onPress={handleFullscreen}
+                                hitSlop={10}
+                                accessibilityRole="button"
+                                accessibilityLabel="Fullscreen video"
+                            >
+                                <Text style={styles.fullscreenIcon}>⛶</Text>
+                            </Pressable>
                         </View>
                     )}
 
@@ -226,6 +253,22 @@ const createStyles = (theme: any) =>
             fontSize: 28,
             color: '#000',
             marginLeft: 4,
+        },
+        fullscreenButton: {
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            borderRadius: 8,
+            width: 44,
+            height: 44,
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10,
+        },
+        fullscreenIcon: {
+            color: '#FFFFFF',
+            fontSize: 18,
         },
 
         contentText: {

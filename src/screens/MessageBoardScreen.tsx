@@ -14,7 +14,8 @@ import {
     Share,
     Alert,
     KeyboardAvoidingView,
-    Keyboard
+    Keyboard,
+    ActivityIndicator
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { announcementService } from '../services/announcementService';
@@ -67,6 +68,7 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
     const themedStyles = useMemo(() => createStyles(theme), [theme]);
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
     const [reactionSummary, setReactionSummary] = useState<Record<string, ReactionSummary>>({});
     const [viewSummary, setViewSummary] = useState<Record<string, ViewSummary>>({});
     const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set());
@@ -106,11 +108,18 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
     );
 
     const loadAnnouncements = async () => {
-        const data = await announcementService.getAll();
-        setAnnouncements(data);
-        await loadReactions(data);
-        await loadViews(data);
-        await loadSavedItems(data);
+        try {
+            const data = await announcementService.getAll();
+            setAnnouncements(data);
+            await loadReactions(data);
+            await loadViews(data);
+            await loadSavedItems(data);
+        } catch (error) {
+            console.warn('Failed to load announcements:', error);
+            Alert.alert('Connection Error', 'Could not load announcements. Pull down to try again.');
+        } finally {
+            setInitialLoading(false);
+        }
     };
 
     const onRefresh = async () => {
@@ -517,7 +526,14 @@ export const MessageBoardScreen = ({ embedded = false }: Props) => {
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
                     }
                     ListEmptyComponent={
-                        <Text style={[themedStyles.emptyText, { color: theme.colors.textSecondary }]}>No announcements yet.</Text>
+                        initialLoading ? (
+                            <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={theme.colors.primary} />
+                        ) : !refreshing ? (
+                            <View style={{ alignItems: 'center', paddingTop: 60 }}>
+                                <Text style={[themedStyles.emptyText, { color: theme.colors.textSecondary, marginTop: 0 }]}>No announcements yet.</Text>
+                                <Text style={{ fontSize: 14, color: theme.colors.textSecondary, fontFamily: 'Inter', marginTop: 4 }}>Pull down to refresh</Text>
+                            </View>
+                        ) : null
                     }
                 />
 

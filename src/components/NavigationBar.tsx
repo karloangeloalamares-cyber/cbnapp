@@ -210,15 +210,10 @@ export const NavigationBar = ({
       elevation: 8,
     },
     adminWrapper: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: insets.bottom + 20, // Dynamic safe area (Edge-to-Edge) + padding
-      zIndex: 1000,
+      width: '100%',
     },
   });
 
@@ -249,6 +244,9 @@ export const NavigationBar = ({
                     if (onItemPress) { onItemPress(item.key as NavigationBarItem); return; }
                     if (item.route && canNavigateTo(item.route)) navigation.navigate(item.route);
                   }}
+                  accessibilityRole="tab"
+                  accessibilityLabel={item.name}
+                  accessibilityState={{ selected: active }}
                 >
                   {item.icon('#FFFFFF')}
                 </Pressable>
@@ -275,6 +273,8 @@ export const NavigationBar = ({
             <Pressable
               style={styles.fabButton}
               onPress={onFabPress}
+              accessibilityRole="button"
+              accessibilityLabel="Create new post"
             >
               <PlusIcon size={28} color="#FFFFFF" strokeWidth={1.5} />
             </Pressable>
@@ -307,7 +307,7 @@ export const NavigationBar = ({
               style={[
                 styles.navItem,
                 active && !isCreate && styles.activeItem,
-                isCreate && styles.fabButton // Reuse reusable FAB style for the create button inside the bar
+                isCreate && styles.fabButton
               ]}
               onPress={() => {
                 if (isCreate) {
@@ -324,6 +324,9 @@ export const NavigationBar = ({
                   navigation.navigate(item.route);
                 }
               }}
+              accessibilityRole={isCreate ? 'button' : 'tab'}
+              accessibilityLabel={isCreate ? 'Create new post' : item.name}
+              accessibilityState={isCreate ? undefined : { selected: active }}
             >
               {item.icon('#FFFFFF')}
               {item.key === 'notifications' && unreadCount > 0 && (

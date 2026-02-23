@@ -39,22 +39,21 @@ export const SelectionHeader = ({
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.primary }]}>
             <View style={styles.content}>
                 <View style={styles.leftSection}>
-                    <Pressable onPress={onClearSelection} style={styles.iconButton}>
+                    <Pressable onPress={onClearSelection} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Clear selection">
                         <Text style={styles.icon}>←</Text>
                     </Pressable>
                     <Text style={styles.countText}>{selectedCount}</Text>
                 </View>
 
                 <View style={styles.rightSection}>
-                    <Pressable onPress={() => handleAction('Share', onShare)} style={styles.iconButton}>
-                        {/* Changed from Forward ↪️ to Share using arrow up tray or similar emoji */}
+                    <Pressable onPress={() => handleAction('Share', onShare)} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Share selected">
                         <Text style={styles.icon}>📤</Text>
                     </Pressable>
-                    <Pressable onPress={() => handleAction('Star', onStar)} style={styles.iconButton}>
+                    <Pressable onPress={() => handleAction('Star', onStar)} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Save selected">
                         <Text style={styles.icon}>⭐</Text>
                     </Pressable>
                     {isAdmin && (
-                        <Pressable onPress={() => handleAction('Delete', onDelete)} style={styles.iconButton}>
+                        <Pressable onPress={() => handleAction('Delete', onDelete)} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Delete selected">
                             <Text style={styles.icon}>🗑️</Text>
                         </Pressable>
                     )}
@@ -93,7 +92,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     iconButton: {
-        padding: 4, // More compact
+        padding: 12,
         marginHorizontal: 2,
     },
     icon: {

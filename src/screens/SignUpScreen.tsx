@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Platform, Alert, Pressable, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -17,6 +17,9 @@ export const SignUpScreen = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const emailRef = useRef<TextInput>(null);
+    const passwordRef = useRef<TextInput>(null);
+    const confirmPasswordRef = useRef<TextInput>(null);
 
     const styles = React.useMemo(() => createStyles(theme), [theme]);
 
@@ -61,7 +64,7 @@ export const SignUpScreen = () => {
                 >
                     <Text style={styles.backArrow}>←</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Back to Login</Text>
+                <Text style={styles.headerTitle}>Create Account</Text>
                 <View style={{ width: 24 }} />
             </View>
 
@@ -83,12 +86,15 @@ export const SignUpScreen = () => {
                             textContentType="name"
                             autoComplete="name"
                             returnKeyType="next"
+                            onSubmitEditing={() => emailRef.current?.focus()}
+                            blurOnSubmit={false}
                             accessibilityLabel="Full name"
                         />
                     </View>
 
                     <View style={styles.inputContainer}>
                         <TextInput
+                            ref={emailRef}
                             style={styles.input}
                             value={email}
                             onChangeText={(text) => {
@@ -102,12 +108,15 @@ export const SignUpScreen = () => {
                             textContentType="emailAddress"
                             autoComplete="email"
                             returnKeyType="next"
+                            onSubmitEditing={() => passwordRef.current?.focus()}
+                            blurOnSubmit={false}
                             accessibilityLabel="Email address"
                         />
                     </View>
 
                     <View style={styles.inputContainer}>
                         <TextInput
+                            ref={passwordRef}
                             style={styles.input}
                             value={password}
                             onChangeText={(text) => {
@@ -120,6 +129,8 @@ export const SignUpScreen = () => {
                             textContentType="newPassword"
                             autoComplete="new-password"
                             returnKeyType="next"
+                            onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                            blurOnSubmit={false}
                             accessibilityLabel="Password"
                         />
                         <Pressable
@@ -135,6 +146,7 @@ export const SignUpScreen = () => {
 
                     <View style={styles.inputContainer}>
                         <TextInput
+                            ref={confirmPasswordRef}
                             style={styles.input}
                             value={confirmPassword}
                             onChangeText={(text) => {

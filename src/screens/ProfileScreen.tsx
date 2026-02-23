@@ -8,6 +8,9 @@ import {
     TouchableOpacity,
     TextInput,
     Alert,
+    KeyboardAvoidingView,
+    ScrollView,
+    Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -94,7 +97,10 @@ export const ProfileScreen = () => {
     )}&background=333333&color=fff`;
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <KeyboardAvoidingView
+            style={[styles.container, { paddingTop: insets.top }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
             <View style={styles.header}>
                 <Pressable onPress={() => navigation.goBack()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
                     <Text style={styles.backText}>←</Text>
@@ -105,7 +111,7 @@ export const ProfileScreen = () => {
                 </Pressable>
             </View>
 
-            <View style={styles.content}>
+            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
                 <View style={styles.avatarContainer}>
                     <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper} accessibilityRole="button" accessibilityLabel="Change profile photo">
                         <Image
@@ -154,8 +160,8 @@ export const ProfileScreen = () => {
                 >
                     <Text style={styles.buttonText}>{loading ? 'SAVING...' : 'SAVE CHANGES'}</Text>
                 </TouchableOpacity>
-            </View>
-        </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 };
 

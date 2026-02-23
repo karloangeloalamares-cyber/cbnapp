@@ -113,11 +113,20 @@ export const MessageCard = ({
       StyleSheet.create({
         container: {
           backgroundColor: cardBgColor,
-          borderRadius: 12,
-          padding: 4,
-          marginVertical: 6,
-          borderWidth: isSelected ? 1 : 0,
-          borderColor: isSelected ? theme.colors.primary : 'transparent',
+          borderRadius: 12, // Strict container radius
+          padding: 10, // Increased internal padding for breathing room
+          marginVertical: 8,
+          borderWidth: 1,
+          borderColor: isSelected ? theme.colors.primary : theme.colors.border || 'rgba(255,255,255,0.1)',
+          // High-end UI Depth (Anti-Flat Trap)
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 4,
+          },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 5,
         },
         contentContainer: {
           paddingTop: 0,
@@ -203,9 +212,9 @@ export const MessageCard = ({
           top: 8,
           right: 8,
           backgroundColor: 'rgba(0,0,0,0.5)',
-          borderRadius: 6,
-          width: 32,
-          height: 32,
+          borderRadius: 8, // Softer radius
+          width: 44, // Minimum iOS HIG size natively
+          height: 44,
           justifyContent: 'center',
           alignItems: 'center',
           zIndex: 10,
@@ -346,6 +355,8 @@ export const MessageCard = ({
         isSponsored && { borderColor: theme.colors.primary, borderWidth: 1 },
         isSelected && { opacity: 0.9 },
       ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Post by ${author_name}. ${content.substring(0, 80)}`}
     >
       <View style={styles.contentContainer}>
         <View style={styles.headerContainer}>

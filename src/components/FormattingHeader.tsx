@@ -28,6 +28,8 @@ export const FormattingHeader = ({ onFormat, onClear }: FormattingHeaderProps) =
                             styles.iconButton,
                             pressed && styles.iconButtonPressed
                         ]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Close formatting"
                     >
                         <Text style={styles.backIcon}>&lt;</Text>
                     </Pressable>
@@ -35,16 +37,16 @@ export const FormattingHeader = ({ onFormat, onClear }: FormattingHeaderProps) =
                 </View>
 
                 <View style={styles.rightSection}>
-                    <Pressable onPress={() => onFormat('*')} style={styles.formatButton}>
+                    <Pressable onPress={() => onFormat('*')} style={styles.formatButton} accessibilityRole="button" accessibilityLabel="Bold">
                         <Text style={[styles.formatText, { fontWeight: 'bold' }]}>B</Text>
                     </Pressable>
-                    <Pressable onPress={() => onFormat('_')} style={styles.formatButton}>
+                    <Pressable onPress={() => onFormat('_')} style={styles.formatButton} accessibilityRole="button" accessibilityLabel="Italic">
                         <Text style={[styles.formatText, { fontStyle: 'italic', fontFamily: Platform.OS === 'ios' ? 'Times New Roman' : 'serif' }]}>I</Text>
                     </Pressable>
-                    <Pressable onPress={() => onFormat('~')} style={styles.formatButton}>
+                    <Pressable onPress={() => onFormat('~')} style={styles.formatButton} accessibilityRole="button" accessibilityLabel="Strikethrough">
                         <Text style={[styles.formatText, { textDecorationLine: 'line-through' }]}>S</Text>
                     </Pressable>
-                    <Pressable onPress={() => onFormat('```')} style={styles.formatButton}>
+                    <Pressable onPress={() => onFormat('```')} style={styles.formatButton} accessibilityRole="button" accessibilityLabel="Monospace">
                         <Text style={[styles.formatText, { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>M</Text>
                     </Pressable>
                 </View>
@@ -99,11 +101,11 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     formatButton: {
-        width: 36,
-        height: 36,
+        width: 44,
+        height: 44,
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 18,
+        borderRadius: 22,
     },
     formatText: {
         fontSize: 18,

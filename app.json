@@ -6,7 +6,7 @@
     "scheme": "cbnapp",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -19,7 +19,10 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false
-        }
+        },
+        "NSPhotoLibraryUsageDescription": "CBN Ads needs access to your photo library so you can attach images and videos to your News and Announcements posts.",
+        "NSCameraUsageDescription": "CBN Ads needs access to your camera so you can take photos to attach to your posts.",
+        "NSMicrophoneUsageDescription": "CBN Ads needs access to your microphone to record audio for video posts."
       }
     },
     "android": {
@@ -32,7 +35,13 @@
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.kalamares.cbnapp",
       "googleServicesFile": "./google-services.json",
-      "allowBackup": false
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -55,11 +64,18 @@
             "networkInspector": false
           },
           "android": {
-            "enableProguardInReleaseBuilds": true
+            "enableProguardInReleaseBuilds": true,
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ],
       "expo-asset"
-    ]
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/60214d42-0c2f-408f-8930-e7bd7b0cf54f"
+    }
   }
 }

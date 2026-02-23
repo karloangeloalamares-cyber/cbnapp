@@ -14,7 +14,8 @@ import {
     Share,
     KeyboardAvoidingView,
     Keyboard,
-    TextInput
+    TextInput,
+    ActivityIndicator
 } from 'react-native';
 import { newsService } from '../services/newsService';
 import { announcementService } from '../services/announcementService';
@@ -104,6 +105,7 @@ export const NewsScreen = () => {
 
     const [news, setNews] = useState<NewsArticle[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
     const [reactionSummary, setReactionSummary] = useState<Record<string, ReactionSummary>>({});
     const [viewSummary, setViewSummary] = useState<Record<string, ViewSummary>>({});
     const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set());
@@ -139,16 +141,18 @@ export const NewsScreen = () => {
     }, []);
 
     const loadNews = async () => {
-        const articles = await newsService.getAll();
-        // Reverse for inverted list (oldest first in array -> becomes top of inverted list)
-        // Wait, inverted list means bottom is index 0. So latest should be index 0. 
-        // newsService.getAll() returns latest first (ORDER BY created_at DESC).
-        // So index 0 is latest. Inverted list renders index 0 at the bottom.
-        // So we want the array to be [Latest, ..., Oldest]. 
-        setNews(articles);
-        await loadReactions(articles);
-        await loadViews(articles);
-        await loadSavedItems(articles);
+        try {
+            const articles = await newsService.getAll();
+            setNews(articles);
+            await loadReactions(articles);
+            await loadViews(articles);
+            await loadSavedItems(articles);
+        } catch (error) {
+            console.warn('Failed to load news:', error);
+            Alert.alert('Connection Error', 'Could not load news. Pull down to try again.');
+        } finally {
+            setInitialLoading(false);
+        }
     };
 
     useFocusEffect(
@@ -676,7 +680,9 @@ export const NewsScreen = () => {
                         />
                     }
                     ListEmptyComponent={
-                        !refreshing ? (
+                        initialLoading ? (
+                            <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={theme.colors.primary} />
+                        ) : !refreshing ? (
                             <View style={{ alignItems: 'center', paddingTop: 60 }}>
                                 <Text style={{ fontSize: 16, color: theme.colors.textSecondary, fontFamily: 'Inter' }}>No news yet</Text>
                                 <Text style={{ fontSize: 14, color: theme.colors.textSecondary, fontFamily: 'Inter', marginTop: 4 }}>Pull down to refresh</Text>

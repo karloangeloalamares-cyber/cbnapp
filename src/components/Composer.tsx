@@ -242,6 +242,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'Inter',
         maxHeight: 100,
+        maxWidth: 650, // Strict reading length constraint (approx. 65ch)
         borderWidth: 1,
     },
     sendButton: {

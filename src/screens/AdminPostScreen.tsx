@@ -140,7 +140,15 @@ export const AdminPostScreen = () => {
     const styles = useMemo(() => StyleSheet.create({
         container: {
             flex: 1,
-            backgroundColor: '#000000', // Reference shows solid black
+            backgroundColor: '#000000',
+            // Elevation to pull modal off the background
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: -10 },
+            shadowOpacity: 0.8,
+            shadowRadius: 20,
+            elevation: 20,
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
         },
         header: {
             flexDirection: 'row',
@@ -202,7 +210,6 @@ export const AdminPostScreen = () => {
             fontSize: 20,
             fontWeight: '700',
             color: '#FFFFFF',
-            marginBottom: 8,
             fontFamily: 'Inter',
         },
         inputMessage: {
@@ -210,8 +217,21 @@ export const AdminPostScreen = () => {
             color: '#FFFFFF',
             minHeight: 100,
             fontFamily: 'Inter',
-            lineHeight: 26,
+            lineHeight: 28, // Better readability
             textAlignVertical: 'top',
+            marginTop: 4,
+        },
+        inputLabel: {
+            fontSize: 12,
+            fontFamily: 'Inter',
+            fontWeight: '600',
+            color: '#888',
+            marginBottom: 4,
+            textTransform: 'uppercase',
+            letterSpacing: 1.5,
+        },
+        inputGroup: {
+            marginBottom: 16,
         },
         mediaPreview: {
             marginTop: 16,
@@ -331,26 +351,36 @@ export const AdminPostScreen = () => {
                         </View>
                         <View style={styles.inputCol}>
                             {!isNews && (
-                                <TextInput
-                                    style={styles.inputTitle}
-                                    value={title}
-                                    onChangeText={setTitle}
-                                    placeholder="Announcement Title"
-                                    placeholderTextColor="#666"
-                                    accessibilityLabel="Announcement title"
-                                    returnKeyType="next"
-                                />
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.inputLabel} nativeID="titleLabel">Title</Text>
+                                    <TextInput
+                                        style={styles.inputTitle}
+                                        value={title}
+                                        onChangeText={setTitle}
+                                        placeholder="Announcement Title"
+                                        placeholderTextColor="#666"
+                                        accessibilityLabelledBy="titleLabel"
+                                        returnKeyType="next"
+                                        onSubmitEditing={() => messageInputRef.current?.focus()}
+                                        blurOnSubmit={false}
+                                    />
+                                </View>
                             )}
-                            <TextInput
-                                ref={messageInputRef}
-                                style={styles.inputMessage}
-                                value={message}
-                                onChangeText={setMessage}
-                                placeholder={isNews ? "What's happening?" : "Announcement details..."}
-                                placeholderTextColor="#666"
-                                multiline
-                                autoFocus
-                            />
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel} nativeID="messageLabel">Message</Text>
+                                <TextInput
+                                    ref={messageInputRef}
+                                    style={styles.inputMessage}
+                                    value={message}
+                                    onChangeText={setMessage}
+                                    placeholder={isNews ? "What's happening?" : "Announcement details..."}
+                                    placeholderTextColor="#666"
+                                    accessibilityLabelledBy="messageLabel"
+                                    multiline
+                                    autoFocus
+                                />
+                            </View>
 
                             {(imageUri || videoUri) && (
                                 <View style={styles.mediaPreview}>

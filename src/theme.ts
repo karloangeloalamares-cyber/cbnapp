@@ -30,8 +30,8 @@ export const lightTheme = {
     },
     typography: {
         adminTitle: { fontSize: 12, fontWeight: '600' as '600', fontFamily: 'Inter' },
-        postTextRegular: { fontSize: 16, fontWeight: '500' as '500', fontFamily: 'Inter', lineHeight: 18 },
-        postTextBold: { fontSize: 16, fontWeight: '700' as '700', fontFamily: 'Inter', lineHeight: 18 },
+        postTextRegular: { fontSize: 16, fontWeight: '500' as '500', fontFamily: 'Inter', lineHeight: 24 },
+        postTextBold: { fontSize: 16, fontWeight: '700' as '700', fontFamily: 'Inter', lineHeight: 24 },
         postLink: { fontSize: 16, fontWeight: '400' as '400', fontFamily: 'Inter', lineHeight: 23 },
         header: { fontSize: 22, fontWeight: 'bold' as 'bold' },
         subHeader: { fontSize: 16, fontWeight: '600' as '600' },
@@ -64,8 +64,8 @@ export const darkTheme = {
     spacing: lightTheme.spacing,
     typography: {
         adminTitle: { fontSize: 12, fontWeight: '600' as '600', fontFamily: 'Inter' },
-        postTextRegular: { fontSize: 16, fontWeight: '500' as '500', fontFamily: 'Inter', lineHeight: 18 },
-        postTextBold: { fontSize: 16, fontWeight: '700' as '700', fontFamily: 'Inter', lineHeight: 18 },
+        postTextRegular: { fontSize: 16, fontWeight: '500' as '500', fontFamily: 'Inter', lineHeight: 24 },
+        postTextBold: { fontSize: 16, fontWeight: '700' as '700', fontFamily: 'Inter', lineHeight: 24 },
         postLink: { fontSize: 16, fontWeight: '400' as '400', fontFamily: 'Inter', lineHeight: 23 },
         header: { fontSize: 22, fontWeight: 'bold' as 'bold' },
         subHeader: { fontSize: 16, fontWeight: '600' as '600' },

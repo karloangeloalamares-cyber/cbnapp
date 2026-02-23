@@ -18,6 +18,7 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { StatsScreen } from '../screens/StatsScreen';
 import { Header } from '../components/Header';
 import { NavigationBar } from '../components/NavigationBar';
+import { OfflineBanner } from '../components/OfflineBanner';
 
 const Tab = createBottomTabNavigator();
 
@@ -122,6 +123,7 @@ export const MainNavigator = () => {
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+            <OfflineBanner />
             <Tab.Navigator
                 tabBar={(props) => {
                     // Hide navbar for admin users? NO, we want it now.

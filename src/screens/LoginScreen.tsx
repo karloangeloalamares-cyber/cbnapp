@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Pressable, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -15,6 +15,7 @@ export const LoginScreen = () => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const passwordRef = useRef<TextInput>(null);
 
     const styles = React.useMemo(() => createStyles(theme), [theme]);
 
@@ -73,12 +74,15 @@ export const LoginScreen = () => {
                             textContentType="emailAddress"
                             autoComplete="email"
                             returnKeyType="next"
+                            onSubmitEditing={() => passwordRef.current?.focus()}
+                            blurOnSubmit={false}
                             accessibilityLabel="Email address"
                         />
                     </View>
 
                     <View style={styles.inputContainer}>
                         <TextInput
+                            ref={passwordRef}
                             style={styles.input}
                             value={password}
                             onChangeText={(text) => {
